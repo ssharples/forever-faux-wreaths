@@ -173,7 +173,7 @@ const categories = [
   { name: "Indoor", slug: "indoor", description: "Wreaths perfect for indoor display" },
 ];
 
-async function uploadImage(imagePath: string): Promise<string> {
+async function uploadImage(imagePath: string): Promise<Id<"_storage">> {
   // Get upload URL from Convex
   const uploadUrl = await client.mutation(api.products.generateUploadUrl);
 
@@ -236,7 +236,6 @@ async function seed() {
     // Determine category based on style
     let categorySlug = "door-wreaths";
     if (product.style === "seasonal") categorySlug = "seasonal";
-    if (product.style === "memorial") categorySlug = "memorial";
 
     // Create product
     await client.mutation(api.products.create, {
