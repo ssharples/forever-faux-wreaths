@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Turbopack configuration
   turbopack: {
-    root: process.cwd(),
+    root: import.meta.dirname,
   },
+
+  // Image optimization
   images: {
     remotePatterns: [
       {
@@ -12,6 +15,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  // Security headers
+  poweredByHeader: false,
+
+  // Strict mode for catching potential issues
+  reactStrictMode: true,
 };
 
 export default nextConfig;

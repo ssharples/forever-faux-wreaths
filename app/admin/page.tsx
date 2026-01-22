@@ -6,7 +6,7 @@ import {
   ShoppingBag,
   MessageSquare,
   TrendingUp,
-  Pound,
+  PoundSterling,
   ArrowUpRight,
   ArrowDownRight,
   Clock,
@@ -24,7 +24,7 @@ const stats = [
     value: "£2,456.00",
     change: "+12.5%",
     trend: "up",
-    icon: Pound,
+    icon: PoundSterling,
   },
   {
     name: "Orders This Month",

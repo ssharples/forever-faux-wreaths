@@ -99,7 +99,7 @@ const cardVariants = {
     y: 0,
     transition: {
       duration: 0.5,
-      ease: [0.25, 0.46, 0.45, 0.94],
+      ease: [0.25, 0.46, 0.45, 0.94] as const,
     },
   },
 };
@@ -115,7 +115,7 @@ const expandVariants = {
     height: "auto",
     marginTop: 16,
     transition: {
-      height: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
+      height: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as const },
       opacity: { duration: 0.2, delay: 0.1 },
     },
   },
@@ -403,7 +403,7 @@ export default function BespokePage() {
             className="text-center max-w-md px-6"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
           >
             <motion.div
               className="w-20 h-20 rounded-full bg-sage-100 mx-auto mb-6 flex items-center justify-center"
@@ -460,7 +460,7 @@ export default function BespokePage() {
             className="container-narrow text-center"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
           >
             <motion.p
               className="font-handwritten text-2xl text-sage-600 mb-4"

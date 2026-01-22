@@ -3,6 +3,7 @@ import "./globals.css";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieConsent } from "@/components/cookie-consent";
+import { cormorantGaramond, montserrat, caveat } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "Forever Faux Wreaths | Handcrafted Faux Florals",
@@ -46,8 +47,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased min-h-screen flex flex-col">
+    <html lang="en" className={`${cormorantGaramond.variable} ${montserrat.variable} ${caveat.variable}`}>
+      <body className="antialiased min-h-screen flex flex-col font-body">
         <ConvexClientProvider>
           {children}
           <Toaster
