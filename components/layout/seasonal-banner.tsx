@@ -40,13 +40,13 @@ export function SeasonalBanner({
   return (
     <div
       className={cn(
-        "relative isolate flex items-center gap-x-6 overflow-hidden px-6 py-2.5 sm:px-3.5 sm:before:flex-1",
+        "relative isolate flex items-center justify-between gap-x-2 overflow-hidden px-3 py-2 sm:px-6 sm:py-2.5",
         variantStyles[variant]
       )}
     >
-      {/* Decorative background elements */}
+      {/* Decorative background elements - hidden on mobile */}
       <div
-        className="absolute left-[max(-7rem,calc(50%-52rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl"
+        className="absolute left-[max(-7rem,calc(50%-52rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl hidden sm:block"
         aria-hidden="true"
       >
         <div
@@ -58,7 +58,7 @@ export function SeasonalBanner({
         />
       </div>
       <div
-        className="absolute left-[max(45rem,calc(50%+8rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl"
+        className="absolute left-[max(45rem,calc(50%+8rem))] top-1/2 -z-10 -translate-y-1/2 transform-gpu blur-2xl hidden sm:block"
         aria-hidden="true"
       >
         <div
@@ -70,20 +70,18 @@ export function SeasonalBanner({
         />
       </div>
 
-      <p className="text-sm leading-6 text-center flex-1">
+      <p className="text-xs sm:text-sm leading-5 sm:leading-6 text-center flex-1 min-w-0">
         <span className="font-medium">{text}</span>
       </p>
 
-      <div className="flex flex-1 justify-end">
-        <button
-          type="button"
-          className="-m-1.5 p-1.5 opacity-70 hover:opacity-100 transition-opacity"
-          onClick={handleDismiss}
-        >
-          <span className="sr-only">Dismiss</span>
-          <X className="h-5 w-5" aria-hidden="true" />
-        </button>
-      </div>
+      <button
+        type="button"
+        className="-m-1 p-1 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0"
+        onClick={handleDismiss}
+      >
+        <span className="sr-only">Dismiss</span>
+        <X className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+      </button>
     </div>
   );
 }

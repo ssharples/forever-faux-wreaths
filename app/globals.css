@@ -361,6 +361,15 @@
 }
 
 @layer utilities {
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Animation utilities */
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;

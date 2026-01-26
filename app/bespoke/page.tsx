@@ -10,6 +10,7 @@ import {
   Info,
   Check,
   Loader2,
+  Circle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Header, Footer } from "@/components/layout";
@@ -43,13 +44,13 @@ const arrangementTypes = [
 ];
 
 const colourThemes = [
-  { value: "sage-green", label: "Sage Green & Neutrals" },
-  { value: "blush-pink", label: "Blush Pink & Cream" },
-  { value: "autumn", label: "Autumn (Oranges, Reds, Browns)" },
-  { value: "winter", label: "Winter (Deep Greens, Berries)" },
-  { value: "spring", label: "Spring (Pastels, Whites)" },
-  { value: "summer", label: "Summer (Bright, Vibrant)" },
-  { value: "custom", label: "Custom - Describe below" },
+  { value: "sage-green", label: "Sage & Neutrals", color: "bg-sage-200" },
+  { value: "blush-pink", label: "Blush & Cream", color: "bg-blush-400/30" },
+  { value: "autumn", label: "Autumn Tones", color: "bg-terracotta-400/30" },
+  { value: "winter", label: "Winter", color: "bg-charcoal-200" },
+  { value: "spring", label: "Spring Pastels", color: "bg-sage-100" },
+  { value: "summer", label: "Summer Brights", color: "bg-gold-400/30" },
+  { value: "custom", label: "Custom", color: "bg-cream-300" },
 ];
 
 const wreathBases = [
@@ -60,11 +61,11 @@ const wreathBases = [
 ];
 
 const sizes = [
-  { value: "20cm", label: "20cm - Small", price: 45 },
-  { value: "30cm", label: "30cm - Medium", price: 55 },
-  { value: "40cm", label: "40cm - Large", price: 70 },
-  { value: "50cm", label: "50cm - Extra Large", price: 85 },
-  { value: "custom", label: "Custom Size - Price on request", price: null },
+  { value: "20cm", label: "Small", size: "20cm", price: 45, desc: "Perfect for interior doors" },
+  { value: "30cm", label: "Medium", size: "30cm", price: 55, desc: "Most popular choice" },
+  { value: "40cm", label: "Large", size: "40cm", price: 70, desc: "Statement piece" },
+  { value: "50cm", label: "Extra Large", size: "50cm", price: 85, desc: "Grand entrance" },
+  { value: "custom", label: "Custom", size: "?", price: null, desc: "Unique dimensions" },
 ];
 
 const occasions = [
@@ -325,6 +326,189 @@ function FormField({
   );
 }
 
+// Mobile-friendly colour theme selector
+function ColourThemeSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+      {colourThemes.map((theme) => {
+        const isSelected = value === theme.value;
+        return (
+          <motion.button
+            key={theme.value}
+            type="button"
+            onClick={() => onChange(theme.value)}
+            className={`relative flex flex-col items-center p-2 sm:p-3 rounded-xl border-2 transition-all ${
+              isSelected
+                ? "border-sage-400 bg-sage-50 shadow-sm"
+                : "border-cream-200 hover:border-sage-200 hover:bg-cream-50"
+            }`}
+            whileTap={{ scale: 0.95 }}
+          >
+            <div
+              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${theme.color} flex items-center justify-center mb-1 border border-cream-300`}
+            >
+              {theme.value === "custom" && (
+                <Sparkles className={`h-4 w-4 ${isSelected ? "text-sage-600" : "text-charcoal-400"}`} />
+              )}
+            </div>
+            <span className={`text-[10px] sm:text-xs text-center leading-tight ${isSelected ? "text-sage-700 font-medium" : "text-charcoal-500"}`}>
+              {theme.label}
+            </span>
+            <AnimatePresence>
+              {isSelected && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-sage-400 rounded-full flex items-center justify-center"
+                >
+                  <Check className="h-3 w-3 text-white" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Mobile-friendly size selector
+function SizeSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+      {sizes.map((size) => {
+        const isSelected = value === size.value;
+        return (
+          <motion.button
+            key={size.value}
+            type="button"
+            onClick={() => onChange(size.value)}
+            className={`relative flex flex-col items-center p-3 sm:p-4 rounded-xl border-2 transition-all ${
+              isSelected
+                ? "border-sage-400 bg-sage-50 shadow-sm"
+                : "border-cream-200 hover:border-sage-200 hover:bg-cream-50"
+            }`}
+            whileTap={{ scale: 0.97 }}
+          >
+            {/* Size circle indicator */}
+            <div className="relative mb-2">
+              <Circle
+                className={`h-8 w-8 sm:h-10 sm:w-10 ${isSelected ? "text-sage-400" : "text-cream-300"}`}
+                strokeWidth={2}
+              />
+              <span className={`absolute inset-0 flex items-center justify-center text-xs font-medium ${isSelected ? "text-sage-600" : "text-charcoal-400"}`}>
+                {size.size}
+              </span>
+            </div>
+            <span className={`text-sm font-medium ${isSelected ? "text-sage-700" : "text-charcoal-600"}`}>
+              {size.label}
+            </span>
+            {size.price ? (
+              <span className={`text-xs ${isSelected ? "text-sage-600" : "text-charcoal-400"}`}>
+                from £{size.price}
+              </span>
+            ) : (
+              <span className="text-xs text-charcoal-400">Quote</span>
+            )}
+            <span className="text-[10px] text-charcoal-400 mt-1 hidden sm:block">
+              {size.desc}
+            </span>
+            <AnimatePresence>
+              {isSelected && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-sage-400 rounded-full flex items-center justify-center shadow-sm"
+                >
+                  <Check className="h-3.5 w-3.5 text-white" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Mobile sticky footer with price and progress
+function MobileStickyFooter({
+  estimatedPrice,
+  progress,
+  isSubmitting,
+  canSubmit,
+  onSubmit,
+}: {
+  estimatedPrice: number | null;
+  progress: number;
+  isSubmitting: boolean;
+  canSubmit: boolean;
+  onSubmit: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ y: 100 }}
+      animate={{ y: 0 }}
+      className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white border-t border-cream-300 shadow-lg"
+    >
+      {/* Progress bar */}
+      <div className="h-1 bg-cream-200">
+        <motion.div
+          className="h-full bg-sage-400"
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 0.3 }}
+        />
+      </div>
+
+      <div className="px-4 py-3 flex items-center justify-between gap-4">
+        {/* Price */}
+        <div className="flex-1 min-w-0">
+          {estimatedPrice !== null ? (
+            <div>
+              <p className="text-xs text-charcoal-400">Estimated from</p>
+              <p className="text-xl font-display text-charcoal-700">£{estimatedPrice}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-charcoal-400">Select options for estimate</p>
+          )}
+        </div>
+
+        {/* Submit button */}
+        <Button
+          type="submit"
+          onClick={onSubmit}
+          disabled={isSubmitting || !canSubmit}
+          className="bg-sage-400 hover:bg-sage-500 text-white px-6"
+        >
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              Submit
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          )}
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function BespokePage() {
   const [formData, setFormData] = useState({
     name: "",
@@ -358,6 +542,22 @@ export default function BespokePage() {
     }
     return total;
   }, [formData.size, formData.ribbon]);
+
+  // Calculate form progress for mobile footer
+  const formProgress = useMemo(() => {
+    const requiredFields = [
+      "name",
+      "email",
+      "arrangementType",
+      "colourTheme",
+      "wreathBase",
+      "size",
+    ];
+    const filledFields = requiredFields.filter(
+      (field) => formData[field as keyof typeof formData] && String(formData[field as keyof typeof formData]).length > 0
+    );
+    return (filledFields.length / requiredFields.length) * 100;
+  }, [formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -455,15 +655,15 @@ export default function BespokePage() {
 
       <main className="flex-1 bg-cream-100">
         {/* Hero */}
-        <section className="bg-gradient-to-b from-sage-100 to-cream-100 py-16 overflow-hidden">
+        <section className="bg-gradient-to-b from-sage-100 to-cream-100 py-10 sm:py-16 overflow-hidden">
           <motion.div
-            className="container-narrow text-center"
+            className="container-narrow text-center px-5"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
           >
             <motion.p
-              className="font-handwritten text-2xl text-sage-600 mb-4"
+              className="font-handwritten text-xl sm:text-2xl text-sage-600 mb-3 sm:mb-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -471,7 +671,7 @@ export default function BespokePage() {
               Something special in mind?
             </motion.p>
             <motion.h1
-              className="mb-6"
+              className="mb-4 sm:mb-6 text-2xl sm:text-4xl"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -479,20 +679,19 @@ export default function BespokePage() {
               Bespoke Order Enquiry
             </motion.h1>
             <motion.p
-              className="text-lg text-charcoal-500 max-w-2xl mx-auto"
+              className="text-base sm:text-lg text-charcoal-500 max-w-2xl mx-auto"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
               Tell me about your vision and I&apos;ll create something beautiful
-              just for you. Fill in the form below and I&apos;ll get back to you
-              within 24-48 hours with a quote.
+              just for you.
             </motion.p>
           </motion.div>
         </section>
 
         {/* Form Section */}
-        <section className="py-12">
+        <section className="py-8 sm:py-12 pb-28 lg:pb-12">
           <div className="container-narrow">
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Form */}
@@ -506,14 +705,14 @@ export default function BespokePage() {
                 >
                   {/* Contact Information */}
                   <motion.div variants={cardVariants}>
-                    <Card className="p-6 border-cream-300 hover:border-sage-200 transition-colors">
-                      <h3 className="text-xl mb-6 flex items-center gap-2">
-                        <span className="w-7 h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-sm font-medium">
+                    <Card className="p-4 sm:p-6 border-cream-300 hover:border-sage-200 transition-colors">
+                      <h3 className="text-lg sm:text-xl mb-4 sm:mb-6 flex items-center gap-2">
+                        <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-xs sm:text-sm font-medium">
                           1
                         </span>
                         Contact Information
                       </h3>
-                      <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
                         <FormField label="Name" required>
                           <Input
                             id="name"
@@ -562,14 +761,14 @@ export default function BespokePage() {
 
                   {/* Design Details */}
                   <motion.div variants={cardVariants}>
-                    <Card className="p-6 border-cream-300 hover:border-sage-200 transition-colors">
-                      <h3 className="text-xl mb-6 flex items-center gap-2">
-                        <span className="w-7 h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-sm font-medium">
+                    <Card className="p-4 sm:p-6 border-cream-300 hover:border-sage-200 transition-colors">
+                      <h3 className="text-lg sm:text-xl mb-4 sm:mb-6 flex items-center gap-2">
+                        <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-xs sm:text-sm font-medium">
                           2
                         </span>
                         Design Details
                       </h3>
-                      <div className="space-y-5">
+                      <div className="space-y-4 sm:space-y-5">
                         <FormField label="Type of Arrangement" required>
                           <Select
                             value={formData.arrangementType}
@@ -590,25 +789,17 @@ export default function BespokePage() {
                           </Select>
                         </FormField>
 
-                        <FormField label="Colour Theme" required>
-                          <Select
+                        <div className="space-y-2">
+                          <Label className="text-charcoal-600">
+                            Colour Theme <span className="text-sage-500">*</span>
+                          </Label>
+                          <ColourThemeSelector
                             value={formData.colourTheme}
-                            onValueChange={(value) =>
+                            onChange={(value) =>
                               setFormData({ ...formData, colourTheme: value })
                             }
-                          >
-                            <SelectTrigger className="mt-1.5">
-                              <SelectValue placeholder="Select colour theme" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {colourThemes.map((theme) => (
-                                <SelectItem key={theme.value} value={theme.value}>
-                                  {theme.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormField>
+                          />
+                        </div>
 
                         <AnimatePresence>
                           {formData.colourTheme === "custom" && (
@@ -639,15 +830,9 @@ export default function BespokePage() {
                           )}
                         </AnimatePresence>
 
-                        <motion.div
+                        <label
+                          htmlFor="ribbon"
                           className="flex items-start space-x-3 py-4 px-4 -mx-4 rounded-lg hover:bg-sage-50/50 transition-colors cursor-pointer"
-                          whileTap={{ scale: 0.995 }}
-                          onClick={() =>
-                            setFormData({
-                              ...formData,
-                              ribbon: !formData.ribbon,
-                            })
-                          }
                         >
                           <Checkbox
                             id="ribbon"
@@ -661,26 +846,19 @@ export default function BespokePage() {
                             className="mt-0.5"
                           />
                           <div className="space-y-1 flex-1">
-                            <Label htmlFor="ribbon" className="cursor-pointer">
+                            <span className="font-medium text-sm text-charcoal-700">
                               Add a ribbon (+£{RIBBON_PRICE})
-                            </Label>
+                            </span>
                             <p className="text-sm text-charcoal-400">
                               A decorative bow or hanging ribbon
                             </p>
                           </div>
-                          <AnimatePresence>
-                            {formData.ribbon && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                exit={{ scale: 0 }}
-                                className="w-6 h-6 rounded-full bg-sage-100 flex items-center justify-center"
-                              >
-                                <Check className="h-3.5 w-3.5 text-sage-600" />
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </motion.div>
+                          {formData.ribbon && (
+                            <div className="w-6 h-6 rounded-full bg-sage-100 flex items-center justify-center">
+                              <Check className="h-3.5 w-3.5 text-sage-600" />
+                            </div>
+                          )}
+                        </label>
 
                         <AnimatePresence>
                           {formData.ribbon && (
@@ -728,26 +906,17 @@ export default function BespokePage() {
                           </Select>
                         </FormField>
 
-                        <FormField label="Size" required>
-                          <Select
+                        <div className="space-y-2">
+                          <Label className="text-charcoal-600">
+                            Size <span className="text-sage-500">*</span>
+                          </Label>
+                          <SizeSelector
                             value={formData.size}
-                            onValueChange={(value) =>
+                            onChange={(value) =>
                               setFormData({ ...formData, size: value })
                             }
-                          >
-                            <SelectTrigger className="mt-1.5">
-                              <SelectValue placeholder="Select size" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {sizes.map((size) => (
-                                <SelectItem key={size.value} value={size.value}>
-                                  {size.label}
-                                  {size.price && ` - from £${size.price}`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormField>
+                          />
+                        </div>
 
                         <AnimatePresence>
                           {formData.size === "custom" && (
@@ -800,9 +969,9 @@ export default function BespokePage() {
 
                   {/* Inspiration Images */}
                   <motion.div variants={cardVariants}>
-                    <Card className="p-6 border-cream-300 hover:border-sage-200 transition-colors">
-                      <h3 className="text-xl mb-2 flex items-center gap-2">
-                        <span className="w-7 h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-sm font-medium">
+                    <Card className="p-4 sm:p-6 border-cream-300 hover:border-sage-200 transition-colors">
+                      <h3 className="text-lg sm:text-xl mb-2 flex items-center gap-2">
+                        <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-xs sm:text-sm font-medium">
                           3
                         </span>
                         Inspiration Images
@@ -822,9 +991,9 @@ export default function BespokePage() {
 
                   {/* Additional Notes */}
                   <motion.div variants={cardVariants}>
-                    <Card className="p-6 border-cream-300 hover:border-sage-200 transition-colors">
-                      <h3 className="text-xl mb-4 flex items-center gap-2">
-                        <span className="w-7 h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-sm font-medium">
+                    <Card className="p-4 sm:p-6 border-cream-300 hover:border-sage-200 transition-colors">
+                      <h3 className="text-lg sm:text-xl mb-3 sm:mb-4 flex items-center gap-2">
+                        <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center text-xs sm:text-sm font-medium">
                           4
                         </span>
                         Additional Notes
@@ -843,17 +1012,8 @@ export default function BespokePage() {
 
                   {/* Consent & Submit */}
                   <motion.div variants={cardVariants}>
-                    <Card className="p-6 border-cream-300">
-                      <motion.div
-                        className="flex items-start space-x-3 mb-6 p-3 -m-3 rounded-lg hover:bg-cream-50 transition-colors cursor-pointer"
-                        whileTap={{ scale: 0.995 }}
-                        onClick={() =>
-                          setFormData({
-                            ...formData,
-                            consent: !formData.consent,
-                          })
-                        }
-                      >
+                    <Card className="p-4 sm:p-6 border-cream-300">
+                      <div className="flex items-start space-x-3 mb-6 p-3 -m-3 rounded-lg hover:bg-cream-50 transition-colors">
                         <Checkbox
                           id="consent"
                           checked={formData.consent}
@@ -865,24 +1025,23 @@ export default function BespokePage() {
                           }
                           className="mt-0.5"
                         />
-                        <Label htmlFor="consent" className="text-sm cursor-pointer">
+                        <label htmlFor="consent" className="text-sm cursor-pointer text-charcoal-600">
                           I agree to the{" "}
                           <Link
                             href="/legal/privacy"
                             className="text-sage-600 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             Privacy Policy
                           </Link>{" "}
                           and consent to Forever Faux Wreaths storing my information
                           to respond to this enquiry.
-                        </Label>
-                      </motion.div>
+                        </label>
+                      </div>
 
                       <Button
                         type="submit"
                         size="lg"
-                        className="w-full bg-sage-400 hover:bg-sage-500 text-white relative overflow-hidden"
+                        className="w-full bg-sage-400 hover:bg-sage-500 text-white relative overflow-hidden hidden lg:flex"
                         disabled={isSubmitting || !formData.consent}
                       >
                         <AnimatePresence mode="wait">
@@ -1020,6 +1179,18 @@ export default function BespokePage() {
           </div>
         </section>
       </main>
+
+      {/* Mobile sticky footer */}
+      <MobileStickyFooter
+        estimatedPrice={estimatedPrice}
+        progress={formProgress}
+        isSubmitting={isSubmitting}
+        canSubmit={formData.consent}
+        onSubmit={() => {
+          const form = document.querySelector("form");
+          if (form) form.requestSubmit();
+        }}
+      />
 
       <Footer />
     </>

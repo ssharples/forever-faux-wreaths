@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { SlidersHorizontal, X, Loader2 } from "lucide-react";
+import { SlidersHorizontal, X, Loader2, Sparkles, Heart, Leaf, Home, Star, Check, ChevronRight, Ruler } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Header, Footer } from "@/components/layout";
@@ -20,25 +20,22 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 
 const styles = [
-  { value: "classic", label: "Classic" },
-  { value: "modern", label: "Modern" },
-  { value: "rustic", label: "Rustic" },
-  { value: "seasonal", label: "Seasonal" },
-  { value: "memorial", label: "Memorial" },
+  { value: "classic", label: "Classic", icon: Star, desc: "Timeless elegance" },
+  { value: "modern", label: "Modern", icon: Sparkles, desc: "Contemporary designs" },
+  { value: "rustic", label: "Rustic", icon: Leaf, desc: "Natural textures" },
+  { value: "seasonal", label: "Seasonal", icon: Home, desc: "Holiday themes" },
+  { value: "memorial", label: "Memorial", icon: Heart, desc: "Tribute pieces" },
 ];
 
 const sizes = [
-  { value: "small", label: "Small (20-30cm)" },
-  { value: "large", label: "Large (40-50cm)" },
+  { value: "small", label: "Small", size: "20-30cm", desc: "Perfect for interior doors" },
+  { value: "large", label: "Large", size: "40-50cm", desc: "Statement entrance pieces" },
 ];
 
 function StockBadge({ stock }: { stock: number }) {
@@ -127,7 +124,8 @@ export default function ShopPage() {
 
   const activeFilterCount = selectedStyles.length + selectedSizes.length;
 
-  const filterContent = (
+  // Desktop filter content (simpler styling)
+  const desktopFilterContent = (
     <div className="space-y-6">
       {/* Style Filter */}
       <div>
@@ -136,7 +134,7 @@ export default function ShopPage() {
           {styles.map((style) => (
             <div key={style.value} className="flex items-center space-x-2">
               <Checkbox
-                id={`style-${style.value}`}
+                id={`desktop-style-${style.value}`}
                 checked={selectedStyles.includes(style.value)}
                 onCheckedChange={(checked) => {
                   if (checked) {
@@ -149,7 +147,7 @@ export default function ShopPage() {
                 }}
               />
               <Label
-                htmlFor={`style-${style.value}`}
+                htmlFor={`desktop-style-${style.value}`}
                 className="text-sm text-charcoal-500 cursor-pointer"
               >
                 {style.label}
@@ -159,7 +157,7 @@ export default function ShopPage() {
         </div>
       </div>
 
-      <Separator />
+      <div className="border-t border-cream-300" />
 
       {/* Size Filter */}
       <div>
@@ -168,7 +166,7 @@ export default function ShopPage() {
           {sizes.map((size) => (
             <div key={size.value} className="flex items-center space-x-2">
               <Checkbox
-                id={`size-${size.value}`}
+                id={`desktop-size-${size.value}`}
                 checked={selectedSizes.includes(size.value)}
                 onCheckedChange={(checked) => {
                   if (checked) {
@@ -181,10 +179,10 @@ export default function ShopPage() {
                 }}
               />
               <Label
-                htmlFor={`size-${size.value}`}
+                htmlFor={`desktop-size-${size.value}`}
                 className="text-sm text-charcoal-500 cursor-pointer"
               >
-                {size.label}
+                {size.label} ({size.size})
               </Label>
             </div>
           ))}
@@ -193,7 +191,7 @@ export default function ShopPage() {
 
       {activeFilterCount > 0 && (
         <>
-          <Separator />
+          <div className="border-t border-cream-300" />
           <Button
             variant="outline"
             size="sm"
@@ -204,6 +202,173 @@ export default function ShopPage() {
           </Button>
         </>
       )}
+    </div>
+  );
+
+  // Mobile filter content (matches mobile menu styling)
+  const mobileFilterContent = (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="relative px-6 pt-6 pb-4 bg-gradient-to-b from-sage-50/80 to-transparent">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sage-100 border-2 border-sage-200">
+            <SlidersHorizontal className="h-5 w-5 text-sage-600" />
+          </div>
+          <div>
+            <p className="font-display text-lg text-charcoal-700 leading-tight">
+              Filter Wreaths
+            </p>
+            <p className="text-[10px] tracking-[0.25em] text-sage-500 uppercase font-medium">
+              {filteredProducts.length} products
+            </p>
+          </div>
+        </div>
+
+        <p className="font-handwritten text-sage-400 text-lg mt-4 mb-1">
+          Find your perfect wreath
+        </p>
+      </div>
+
+      {/* Filter options */}
+      <nav className="px-4 pb-6 overflow-y-auto flex-1">
+        {/* Style section */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 px-3 mb-3">
+            <Leaf className="h-3.5 w-3.5 text-sage-400" />
+            <span className="text-[11px] font-semibold text-sage-500 uppercase tracking-wider">
+              Style
+            </span>
+          </div>
+          <ul className="space-y-1">
+            {styles.map((style) => {
+              const Icon = style.icon;
+              const isSelected = selectedStyles.includes(style.value);
+              return (
+                <li key={style.value}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedStyles(selectedStyles.filter((s) => s !== style.value));
+                      } else {
+                        setSelectedStyles([...selectedStyles, style.value]);
+                      }
+                    }}
+                    className={`group flex items-center gap-3 w-full rounded-xl px-3 py-2.5 transition-all duration-200 ${
+                      isSelected
+                        ? "bg-sage-100 text-charcoal-700"
+                        : "text-charcoal-600 hover:bg-sage-50"
+                    }`}
+                  >
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                      isSelected ? "bg-sage-200" : "bg-cream-100 group-hover:bg-sage-100"
+                    }`}>
+                      <Icon className={`h-4 w-4 ${isSelected ? "text-sage-600" : "text-sage-500"}`} />
+                    </span>
+                    <div className="flex-1 text-left">
+                      <span className="text-[15px] font-medium block">{style.label}</span>
+                      <span className="text-xs text-charcoal-400">{style.desc}</span>
+                    </div>
+                    {isSelected && (
+                      <div className="w-5 h-5 bg-sage-400 rounded-full flex items-center justify-center">
+                        <Check className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {/* Size section */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 px-3 mb-3">
+            <Ruler className="h-3.5 w-3.5 text-sage-400" />
+            <span className="text-[11px] font-semibold text-sage-500 uppercase tracking-wider">
+              Size
+            </span>
+          </div>
+          <ul className="space-y-1">
+            {sizes.map((size) => {
+              const isSelected = selectedSizes.includes(size.value);
+              return (
+                <li key={size.value}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedSizes(selectedSizes.filter((s) => s !== size.value));
+                      } else {
+                        setSelectedSizes([...selectedSizes, size.value]);
+                      }
+                    }}
+                    className={`group flex items-center gap-3 w-full rounded-xl px-3 py-2.5 transition-all duration-200 ${
+                      isSelected
+                        ? "bg-sage-100 text-charcoal-700"
+                        : "text-charcoal-600 hover:bg-sage-50"
+                    }`}
+                  >
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                      isSelected ? "bg-sage-200" : "bg-cream-100 group-hover:bg-sage-100"
+                    }`}>
+                      <span className={`text-xs font-medium ${isSelected ? "text-sage-600" : "text-charcoal-500"}`}>
+                        {size.size.split("-")[0]}
+                      </span>
+                    </span>
+                    <div className="flex-1 text-left">
+                      <span className="text-[15px] font-medium block">{size.label}</span>
+                      <span className="text-xs text-charcoal-400">{size.desc}</span>
+                    </div>
+                    {isSelected && (
+                      <div className="w-5 h-5 bg-sage-400 rounded-full flex items-center justify-center">
+                        <Check className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {/* Clear filters */}
+        {activeFilterCount > 0 && (
+          <div className="pt-4 border-t border-cream-300">
+            <Button
+              variant="outline"
+              onClick={() => {
+                clearFilters();
+                setFiltersOpen(false);
+              }}
+              className="w-full border-sage-300 text-sage-600 hover:bg-sage-50"
+            >
+              Clear All Filters ({activeFilterCount})
+            </Button>
+          </div>
+        )}
+
+        {/* Footer decoration */}
+        <div className="mt-8 text-center">
+          <p className="font-handwritten text-sage-400 text-base">
+            Handcrafted with love
+          </p>
+          <p className="text-[10px] text-charcoal-300 mt-1 tracking-wide">
+            Preston, Lancashire
+          </p>
+        </div>
+      </nav>
+
+      {/* Apply button */}
+      <div className="px-4 py-4 border-t border-cream-300 bg-white">
+        <Button
+          onClick={() => setFiltersOpen(false)}
+          className="w-full bg-sage-400 hover:bg-sage-500 text-white"
+        >
+          Show {filteredProducts.length} Products
+          <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 
@@ -248,13 +413,8 @@ export default function ShopPage() {
                       )}
                     </Button>
                   </SheetTrigger>
-                  <SheetContent side="left" className="w-80 bg-cream-100">
-                    <SheetHeader>
-                      <SheetTitle>Filters</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-6">
-                      {filterContent}
-                    </div>
+                  <SheetContent side="left" className="w-full sm:max-w-sm bg-cream-50 border-r border-cream-300 p-0">
+                    {mobileFilterContent}
                   </SheetContent>
                 </Sheet>
 
@@ -332,7 +492,7 @@ export default function ShopPage() {
               <aside className="hidden lg:block w-64 shrink-0">
                 <div className="sticky top-24 bg-white rounded-lg border border-cream-300 p-6">
                   <h3 className="font-medium text-charcoal-600 mb-4">Filters</h3>
-                  {filterContent}
+                  {desktopFilterContent}
                 </div>
               </aside>
 

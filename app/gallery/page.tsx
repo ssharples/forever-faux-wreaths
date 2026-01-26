@@ -7,7 +7,6 @@ import { Sparkles, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header, Footer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Gallery images with professional photos
 const galleryImages = [
@@ -67,41 +66,44 @@ export default function GalleryPage() {
 
       <main className="flex-1 bg-cream-100">
         {/* Hero */}
-        <section className="bg-gradient-to-b from-cream-100 to-cream-200 py-16">
-          <div className="container-narrow text-center">
-            <p className="font-handwritten text-2xl text-sage-600 mb-4">
+        <section className="bg-gradient-to-b from-cream-100 to-cream-200 py-10 sm:py-16">
+          <div className="container-narrow text-center px-5">
+            <p className="font-handwritten text-xl sm:text-2xl text-sage-600 mb-3 sm:mb-4">
               Inspiration awaits
             </p>
-            <h1 className="mb-6">Our Gallery</h1>
-            <p className="text-lg text-charcoal-500 max-w-2xl mx-auto">
-              Browse our collection of handcrafted wreaths, from ready-made
-              designs to bespoke creations. Each piece is made with love and
-              attention to detail.
+            <h1 className="mb-4 sm:mb-6 text-2xl sm:text-4xl">Our Gallery</h1>
+            <p className="text-base sm:text-lg text-charcoal-500 max-w-2xl mx-auto">
+              Browse our collection of handcrafted wreaths. Each piece is made with love.
             </p>
           </div>
         </section>
 
         {/* Gallery */}
-        <section className="py-12">
+        <section className="py-8 sm:py-12">
           <div className="container-wide">
-            {/* Category Filter */}
-            <div className="flex justify-center mb-8">
-              <Tabs
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-              >
-                <TabsList className="bg-cream-200 flex-wrap h-auto gap-1 p-1">
+            {/* Category Filter - horizontally scrollable on mobile */}
+            <div className="mb-6 sm:mb-8 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
+                <div className="flex sm:flex-wrap sm:justify-center gap-2 min-w-max sm:min-w-0">
                   {categories.map((cat) => (
-                    <TabsTrigger
+                    <button
                       key={cat.value}
-                      value={cat.value}
-                      className="data-[state=active]:bg-sage-400 data-[state=active]:text-white"
+                      onClick={() => setSelectedCategory(cat.value)}
+                      className={`px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                        selectedCategory === cat.value
+                          ? "bg-sage-400 text-white shadow-sm"
+                          : "bg-cream-200 text-charcoal-600 hover:bg-cream-300"
+                      }`}
                     >
                       {cat.label}
-                    </TabsTrigger>
+                    </button>
                   ))}
-                </TabsList>
-              </Tabs>
+                </div>
+              </div>
+              {/* Scroll hint for mobile */}
+              <p className="text-[10px] text-charcoal-400 text-center mt-2 sm:hidden">
+                Swipe to see more categories →
+              </p>
             </div>
 
             {/* Masonry Grid - tighter on mobile */}
