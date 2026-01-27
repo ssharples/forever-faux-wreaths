@@ -1,0 +1,65 @@
+# .github/workflows/preview-fix.yml
+# Add this to any repo you want to auto-fix deployment failures
+# 
+# Required secrets:
+#   CLAWDBOT_SSH_KEY: SSH private key to access VPS
+#   CLAWDBOT_HOST: 31.97.115.29
+
+name: Auto-Fix Preview Failures
+
+on:
+  deployment_status:
+  check_run:
+    types: [completed]
+
+jobs:
+  fix-preview:
+    if: |
+      (github.event_name == 'deployment_status' && github.event.deployment_status.state == 'failure') ||
+      (github.event_name == 'check_run' && github.event.check_run.conclusion == 'failure' && 
+       (contains(github.event.check_run.name, 'netlify') || contains(github.event.check_run.name, 'vercel') || contains(github.event.check_run.name, 'Netlify') || contains(github.event.check_run.name, 'Vercel')))
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Extract error info
+        id: error
+        run: |
+          if [ "${{ github.event_name }}" == "deployment_status" ]; then
+            echo "log_url=${{ github.event.deployment_status.log_url }}" >> $GITHUB_OUTPUT
+            echo "target_url=${{ github.event.deployment_status.target_url }}" >> $GITHUB_OUTPUT
+            echo "description=${{ github.event.deployment_status.description }}" >> $GITHUB_OUTPUT
+          else
+            echo "log_url=${{ github.event.check_run.details_url }}" >> $GITHUB_OUTPUT
+            echo "target_url=${{ github.event.check_run.html_url }}" >> $GITHUB_OUTPUT
+            echo "description=Check run failed" >> $GITHUB_OUTPUT
+          fi
+          echo "repo=${{ github.repository }}" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.head_ref || github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Trigger Clawdbot PR Review Agent
+        env:
+          SSH_KEY: ${{ secrets.CLAWDBOT_SSH_KEY }}
+          HOST: ${{ secrets.CLAWDBOT_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts 2>/dev/null
+          
+          cat > /tmp/prompt.txt << EOF
+          DEPLOYMENT FAILURE - AUTO-FIX
+          
+          Repo: ${{ steps.error.outputs.repo }}
+          Branch: ${{ steps.error.outputs.branch }}
+          Commit: ${{ steps.error.outputs.sha }}
+          Log URL: ${{ steps.error.outputs.log_url }}
+          Target: ${{ steps.error.outputs.target_url }}
+          Error: ${{ steps.error.outputs.description }}
+          
+          Execute the fix workflow from ~/clawd-pr-review/AGENTS.md
+          EOF
+          
+          PROMPT=$(cat /tmp/prompt.txt | tr '\n' ' ')
+          ssh -o StrictHostKeyChecking=no root@$HOST "su - clawdbot -c 'source ~/.nvm/nvm.sh && clawdbot agent --agent pr-review --message \"$PROMPT\" --deliver --to telegram:8088002327 2>&1'" || echo "Agent trigger completed"
