@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import {
   Search,
   MoreHorizontal,
@@ -12,6 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   ArrowUpDown,
+  Loader2,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,122 +36,114 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
-// Placeholder orders data
-const orders = [
-  {
-    id: "FFW-001234",
-    customer: "Sarah Mitchell",
-    email: "sarah.m@email.com",
-    total: 72.99,
-    items: 1,
-    status: "processing",
-    delivery: "standard",
-    date: "2024-11-15 14:32",
-  },
-  {
-    id: "FFW-001233",
-    customer: "Emma Thompson",
-    email: "emma.t@email.com",
-    total: 132.99,
-    items: 2,
-    status: "shipped",
-    delivery: "standard",
-    date: "2024-11-15 09:18",
-  },
-  {
-    id: "FFW-001232",
-    customer: "Rachel King",
-    email: "rachel.k@email.com",
-    total: 52.99,
-    items: 1,
-    status: "delivered",
-    delivery: "collection",
-    date: "2024-11-14 16:45",
-  },
-  {
-    id: "FFW-001231",
-    customer: "Jennifer Lewis",
-    email: "jennifer.l@email.com",
-    total: 92.99,
-    items: 2,
-    status: "processing",
-    delivery: "standard",
-    date: "2024-11-14 11:20",
-  },
-  {
-    id: "FFW-001230",
-    customer: "Claire Brown",
-    email: "claire.b@email.com",
-    total: 62.99,
-    items: 1,
-    status: "delivered",
-    delivery: "collection",
-    date: "2024-11-13 10:05",
-  },
-  {
-    id: "FFW-001229",
-    customer: "Michelle White",
-    email: "michelle.w@email.com",
-    total: 145.99,
-    items: 3,
-    status: "cancelled",
-    delivery: "standard",
-    date: "2024-11-12 15:30",
-  },
-  {
-    id: "FFW-001228",
-    customer: "Amanda Davis",
-    email: "amanda.d@email.com",
-    total: 85.99,
-    items: 1,
-    status: "delivered",
-    delivery: "standard",
-    date: "2024-11-11 09:45",
-  },
-];
+type OrderStatus = "pending" | "processing" | "dispatched" | "delivered" | "collected";
 
 const statusConfig: Record<
-  string,
-  { color: string; icon: React.ComponentType<{ className?: string }> }
+  OrderStatus,
+  { color: string; icon: React.ComponentType<{ className?: string }>; label: string }
 > = {
-  pending: { color: "bg-amber-100 text-amber-700", icon: Clock },
-  processing: { color: "bg-blue-100 text-blue-700", icon: Package },
-  shipped: { color: "bg-purple-100 text-purple-700", icon: Truck },
-  delivered: { color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  cancelled: { color: "bg-red-100 text-red-700", icon: XCircle },
+  pending: { color: "bg-amber-100 text-amber-700", icon: Clock, label: "Pending" },
+  processing: { color: "bg-blue-100 text-blue-700", icon: Package, label: "Processing" },
+  dispatched: { color: "bg-purple-100 text-purple-700", icon: Truck, label: "Dispatched" },
+  delivered: { color: "bg-green-100 text-green-700", icon: CheckCircle2, label: "Delivered" },
+  collected: { color: "bg-green-100 text-green-700", icon: MapPin, label: "Collected" },
 };
 
 export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  const [trackingDialog, setTrackingDialog] = useState<{
+    open: boolean;
+    orderId: Id<"orders"> | null;
+    orderNumber: string;
+  }>({ open: false, orderId: null, orderNumber: "" });
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const filteredOrders = orders.filter((order) => {
+  // Fetch orders from Convex
+  const orders = useQuery(
+    api.orders.list,
+    statusFilter === "all" ? {} : { status: statusFilter }
+  );
+  const updateOrderStatus = useMutation(api.orders.updateStatus);
+
+  const isLoading = orders === undefined;
+
+  // Filter orders by search query
+  const filteredOrders = orders?.filter((order) => {
     const matchesSearch =
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customerEmail.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  }) ?? [];
 
+  // Get status counts
   const getStatusCounts = () => {
     const counts: Record<string, number> = {
-      all: orders.length,
+      all: orders?.length ?? 0,
       pending: 0,
       processing: 0,
-      shipped: 0,
+      dispatched: 0,
       delivered: 0,
-      cancelled: 0,
+      collected: 0,
     };
-    orders.forEach((order) => {
+    orders?.forEach((order) => {
       counts[order.status]++;
     });
     return counts;
   };
 
   const statusCounts = getStatusCounts();
+
+  const handleStatusUpdate = async (orderId: Id<"orders">, newStatus: OrderStatus, trackingNum?: string) => {
+    setIsUpdating(true);
+    try {
+      await updateOrderStatus({
+        id: orderId,
+        status: newStatus,
+        ...(trackingNum ? { trackingNumber: trackingNum } : {}),
+      });
+      toast.success(`Order updated to ${statusConfig[newStatus].label}`);
+      setTrackingDialog({ open: false, orderId: null, orderNumber: "" });
+      setTrackingNumber("");
+    } catch (error) {
+      toast.error("Failed to update order");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDispatch = (orderId: Id<"orders">, orderNumber: string) => {
+    setTrackingDialog({ open: true, orderId, orderNumber });
+  };
+
+  const confirmDispatch = () => {
+    if (trackingDialog.orderId) {
+      handleStatusUpdate(trackingDialog.orderId, "dispatched", trackingNumber || undefined);
+    }
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <div className="p-6 lg:p-8">
@@ -160,7 +157,7 @@ export default function OrdersPage() {
 
       {/* Status Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {["all", "processing", "shipped", "delivered", "cancelled"].map(
+        {(["all", "pending", "processing", "dispatched", "delivered", "collected"] as const).map(
           (status) => (
             <Button
               key={status}
@@ -175,7 +172,7 @@ export default function OrdersPage() {
             >
               {status === "all"
                 ? "All"
-                : status.charAt(0).toUpperCase() + status.slice(1)}
+                : statusConfig[status as OrderStatus].label}
               <span className="ml-1.5 text-xs opacity-70">
                 ({statusCounts[status]})
               </span>
@@ -212,139 +209,163 @@ export default function OrdersPage() {
 
       {/* Orders Table */}
       <Card className="border-cream-300 bg-white overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-cream-50 border-b border-cream-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  <button className="flex items-center gap-1 hover:text-charcoal-800">
-                    Order
-                    <ArrowUpDown className="h-4 w-4" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  Customer
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  Delivery
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  <button className="flex items-center gap-1 hover:text-charcoal-800">
-                    Total
-                    <ArrowUpDown className="h-4 w-4" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  <button className="flex items-center gap-1 hover:text-charcoal-800">
-                    Date
-                    <ArrowUpDown className="h-4 w-4" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-charcoal-600">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cream-200">
-              {filteredOrders.map((order) => {
-                const StatusIcon = statusConfig[order.status].icon;
-                return (
-                  <tr
-                    key={order.id}
-                    className="hover:bg-cream-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-medium text-charcoal-700">
-                          {order.id}
-                        </p>
-                        <p className="text-xs text-charcoal-400">
-                          {order.items} item(s)
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-medium text-charcoal-700">
-                          {order.customer}
-                        </p>
-                        <p className="text-xs text-charcoal-400">
-                          {order.email}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        className={`${statusConfig[order.status].color} flex items-center gap-1 w-fit`}
-                      >
-                        <StatusIcon className="h-3 w-3" />
-                        {order.status.charAt(0).toUpperCase() +
-                          order.status.slice(1)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-charcoal-600 capitalize">
-                        {order.delivery}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-charcoal-700">
-                        £{order.total.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-charcoal-500">
-                        {order.date}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/orders/${order.id}`}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {order.status === "processing" && (
-                            <DropdownMenuItem>
-                              <Truck className="h-4 w-4 mr-2" />
-                              Mark as Shipped
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-sage-400 mx-auto mb-4" />
+            <p className="text-charcoal-500">Loading orders...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-cream-50 border-b border-cream-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    <button className="flex items-center gap-1 hover:text-charcoal-800">
+                      Order
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    Customer
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    Delivery
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    <button className="flex items-center gap-1 hover:text-charcoal-800">
+                      Total
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    <button className="flex items-center gap-1 hover:text-charcoal-800">
+                      Date
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-charcoal-600">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cream-200">
+                {filteredOrders.map((order) => {
+                  const StatusIcon = statusConfig[order.status].icon;
+                  return (
+                    <tr
+                      key={order._id}
+                      className="hover:bg-cream-50 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-charcoal-700">
+                            {order.orderNumber}
+                          </p>
+                          <p className="text-xs text-charcoal-400">
+                            {order.items.length} item(s)
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-charcoal-700">
+                            {order.customerName}
+                          </p>
+                          <p className="text-xs text-charcoal-400">
+                            {order.customerEmail}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          className={`${statusConfig[order.status].color} flex items-center gap-1 w-fit`}
+                        >
+                          <StatusIcon className="h-3 w-3" />
+                          {statusConfig[order.status].label}
+                        </Badge>
+                        {order.trackingNumber && (
+                          <p className="text-xs text-charcoal-400 mt-1">
+                            Track: {order.trackingNumber}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-charcoal-600 capitalize">
+                          {order.deliveryMethod}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-medium text-charcoal-700">
+                          £{order.total.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-charcoal-500">
+                          {formatDate(order.createdAt)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/orders/${order._id}`}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </Link>
                             </DropdownMenuItem>
-                          )}
-                          {order.status === "shipped" && (
-                            <DropdownMenuItem>
-                              <CheckCircle2 className="h-4 w-4 mr-2" />
-                              Mark as Delivered
-                            </DropdownMenuItem>
-                          )}
-                          {(order.status === "pending" ||
-                            order.status === "processing") && (
-                            <DropdownMenuItem className="text-destructive">
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Cancel Order
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                            <DropdownMenuSeparator />
+                            {order.status === "pending" && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusUpdate(order._id, "processing")}
+                              >
+                                <Package className="h-4 w-4 mr-2" />
+                                Mark as Processing
+                              </DropdownMenuItem>
+                            )}
+                            {order.status === "processing" && order.deliveryMethod === "standard" && (
+                              <DropdownMenuItem
+                                onClick={() => handleDispatch(order._id, order.orderNumber)}
+                              >
+                                <Truck className="h-4 w-4 mr-2" />
+                                Mark as Dispatched
+                              </DropdownMenuItem>
+                            )}
+                            {order.status === "processing" && order.deliveryMethod === "collection" && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusUpdate(order._id, "collected")}
+                              >
+                                <MapPin className="h-4 w-4 mr-2" />
+                                Mark as Collected
+                              </DropdownMenuItem>
+                            )}
+                            {order.status === "dispatched" && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusUpdate(order._id, "delivered")}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Mark as Delivered
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {filteredOrders.length === 0 && (
+        {!isLoading && filteredOrders.length === 0 && (
           <div className="p-12 text-center">
             <Package className="h-12 w-12 text-sage-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-charcoal-700 mb-2">
@@ -360,21 +381,68 @@ export default function OrdersPage() {
       </Card>
 
       {/* Pagination */}
-      {filteredOrders.length > 0 && (
+      {!isLoading && filteredOrders.length > 0 && (
         <div className="mt-4 flex items-center justify-between text-sm text-charcoal-500">
           <span>
-            Showing {filteredOrders.length} of {orders.length} orders
+            Showing {filteredOrders.length} of {orders?.length ?? 0} orders
           </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
-          </div>
         </div>
       )}
+
+      {/* Tracking Number Dialog */}
+      <Dialog
+        open={trackingDialog.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTrackingDialog({ open: false, orderId: null, orderNumber: "" });
+            setTrackingNumber("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dispatch Order</DialogTitle>
+            <DialogDescription>
+              Add a tracking number for order {trackingDialog.orderNumber} (optional).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="tracking">Tracking Number</Label>
+            <Input
+              id="tracking"
+              value={trackingNumber}
+              onChange={(e) => setTrackingNumber(e.target.value)}
+              placeholder="e.g., RM123456789GB"
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTrackingDialog({ open: false, orderId: null, orderNumber: "" });
+                setTrackingNumber("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDispatch}
+              disabled={isUpdating}
+              className="bg-sage-400 hover:bg-sage-500 text-white"
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Mark as Dispatched"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

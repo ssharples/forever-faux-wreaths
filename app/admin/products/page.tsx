@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import {
   Plus,
   Search,
@@ -13,6 +17,7 @@ import {
   Copy,
   Sparkles,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,103 +37,61 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-
-// Placeholder products data
-const products = [
-  {
-    id: "1",
-    title: "Classic Eucalyptus Wreath",
-    slug: "classic-eucalyptus-wreath",
-    price: 65,
-    status: "active",
-    stock: 5,
-    category: "Classic",
-    size: "Large (40cm)",
-    createdAt: "2024-10-15",
-  },
-  {
-    id: "2",
-    title: "Spring Blossom Door Wreath",
-    slug: "spring-blossom-door-wreath",
-    price: 55,
-    status: "active",
-    stock: 3,
-    category: "Seasonal",
-    size: "Medium (30cm)",
-    createdAt: "2024-10-12",
-  },
-  {
-    id: "3",
-    title: "Autumn Harvest Wreath",
-    slug: "autumn-harvest-wreath",
-    price: 60,
-    status: "active",
-    stock: 0,
-    category: "Seasonal",
-    size: "Large (40cm)",
-    createdAt: "2024-09-28",
-  },
-  {
-    id: "4",
-    title: "Mini Lavender Wreath",
-    slug: "mini-lavender-wreath",
-    price: 35,
-    status: "active",
-    stock: 8,
-    category: "Classic",
-    size: "Small (20cm)",
-    createdAt: "2024-09-15",
-  },
-  {
-    id: "5",
-    title: "Christmas Berry Wreath",
-    slug: "christmas-berry-wreath",
-    price: 75,
-    status: "draft",
-    stock: 0,
-    category: "Seasonal",
-    size: "Large (40cm)",
-    createdAt: "2024-11-01",
-  },
-  {
-    id: "6",
-    title: "Peony & Rose Door Wreath",
-    slug: "peony-rose-door-wreath",
-    price: 70,
-    status: "active",
-    stock: 2,
-    category: "Classic",
-    size: "Medium (30cm)",
-    createdAt: "2024-08-20",
-  },
-];
+import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
   active: "bg-green-100 text-green-700",
   draft: "bg-charcoal-100 text-charcoal-600",
-  archived: "bg-amber-100 text-amber-700",
+  "sold-out": "bg-amber-100 text-amber-700",
 };
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "sold-out">("all");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Id<"products"> | null>(null);
 
-  const filteredProducts = products.filter((product) => {
+  // Fetch products from Convex
+  const products = useQuery(api.products.list, 
+    statusFilter === "all" ? {} : { status: statusFilter }
+  );
+  const categories = useQuery(api.categories.list);
+  const removeProduct = useMutation(api.products.remove);
+  const updateProduct = useMutation(api.products.update);
+
+  const isLoading = products === undefined;
+
+  // Filter products by search query
+  const filteredProducts = products?.filter((product) => {
     const matchesSearch = product.title
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || product.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+    return matchesSearch;
+  }) ?? [];
+
+  // Get category name by ID
+  const getCategoryName = (categoryId: Id<"categories">) => {
+    const category = categories?.find((c) => c._id === categoryId);
+    return category?.name ?? "Unknown";
+  };
 
   const toggleSelectAll = () => {
     if (selectedProducts.length === filteredProducts.length) {
       setSelectedProducts([]);
     } else {
-      setSelectedProducts(filteredProducts.map((p) => p.id));
+      setSelectedProducts(filteredProducts.map((p) => p._id));
     }
   };
 
@@ -137,6 +100,46 @@ export default function ProductsPage() {
       setSelectedProducts(selectedProducts.filter((p) => p !== id));
     } else {
       setSelectedProducts([...selectedProducts, id]);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!productToDelete) return;
+    try {
+      await removeProduct({ id: productToDelete });
+      toast.success("Product deleted successfully");
+      setProductToDelete(null);
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to delete product");
+    }
+  };
+
+  const handleBulkStatusUpdate = async (status: "active" | "draft" | "sold-out") => {
+    try {
+      await Promise.all(
+        selectedProducts.map((id) =>
+          updateProduct({ id: id as Id<"products">, status })
+        )
+      );
+      toast.success(`${selectedProducts.length} product(s) updated to ${status}`);
+      setSelectedProducts([]);
+    } catch (error) {
+      toast.error("Failed to update products");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(
+        selectedProducts.map((id) =>
+          removeProduct({ id: id as Id<"products"> })
+        )
+      );
+      toast.success(`${selectedProducts.length} product(s) deleted`);
+      setSelectedProducts([]);
+    } catch (error) {
+      toast.error("Failed to delete products");
     }
   };
 
@@ -170,7 +173,10 @@ export default function ProductsPage() {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select 
+            value={statusFilter} 
+            onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          >
             <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
@@ -179,7 +185,7 @@ export default function ProductsPage() {
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="sold-out">Sold Out</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -192,16 +198,25 @@ export default function ProductsPage() {
             {selectedProducts.length} product(s) selected
           </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleBulkStatusUpdate("active")}
+            >
               Set Active
             </Button>
-            <Button variant="outline" size="sm">
-              Archive
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleBulkStatusUpdate("draft")}
+            >
+              Set Draft
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="text-destructive hover:bg-destructive/10"
+              onClick={handleBulkDelete}
             >
               Delete
             </Button>
@@ -211,140 +226,160 @@ export default function ProductsPage() {
 
       {/* Products Table */}
       <Card className="border-cream-300 bg-white overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-cream-50 border-b border-cream-200">
-              <tr>
-                <th className="px-4 py-3 text-left">
-                  <Checkbox
-                    checked={
-                      selectedProducts.length === filteredProducts.length &&
-                      filteredProducts.length > 0
-                    }
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  <button className="flex items-center gap-1 hover:text-charcoal-800">
-                    Product
-                    <ArrowUpDown className="h-4 w-4" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  Stock
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  <button className="flex items-center gap-1 hover:text-charcoal-800">
-                    Price
-                    <ArrowUpDown className="h-4 w-4" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-charcoal-600">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cream-200">
-              {filteredProducts.map((product) => (
-                <tr
-                  key={product.id}
-                  className="hover:bg-cream-50 transition-colors"
-                >
-                  <td className="px-4 py-3">
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-sage-400 mx-auto mb-4" />
+            <p className="text-charcoal-500">Loading products...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-cream-50 border-b border-cream-200">
+                <tr>
+                  <th className="px-4 py-3 text-left">
                     <Checkbox
-                      checked={selectedProducts.includes(product.id)}
-                      onCheckedChange={() => toggleSelect(product.id)}
+                      checked={
+                        selectedProducts.length === filteredProducts.length &&
+                        filteredProducts.length > 0
+                      }
+                      onCheckedChange={toggleSelectAll}
                     />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-cream-200 flex items-center justify-center shrink-0">
-                        <Sparkles className="h-5 w-5 text-sage-300" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-charcoal-700 line-clamp-1">
-                          {product.title}
-                        </p>
-                        <p className="text-xs text-charcoal-400">
-                          {product.size}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge className={statusColors[product.status]}>
-                      {product.status.charAt(0).toUpperCase() +
-                        product.status.slice(1)}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-sm ${
-                        product.stock === 0
-                          ? "text-red-500"
-                          : product.stock <= 3
-                          ? "text-amber-600"
-                          : "text-charcoal-600"
-                      }`}
-                    >
-                      {product.stock === 0 ? "Out of stock" : product.stock}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-medium text-charcoal-700">
-                      £{product.price.toFixed(2)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-sm text-charcoal-600">
-                      {product.category}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/shop/${product.slug}`}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/products/${product.id}`}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    <button className="flex items-center gap-1 hover:text-charcoal-800">
+                      Product
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    Stock
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    <button className="flex items-center gap-1 hover:text-charcoal-800">
+                      Price
+                      <ArrowUpDown className="h-4 w-4" />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                    Category
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-charcoal-600">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-cream-200">
+                {filteredProducts.map((product) => (
+                  <tr
+                    key={product._id}
+                    className="hover:bg-cream-50 transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <Checkbox
+                        checked={selectedProducts.includes(product._id)}
+                        onCheckedChange={() => toggleSelect(product._id)}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-cream-200 shrink-0 overflow-hidden flex items-center justify-center">
+                          {product.imageUrls && product.imageUrls[0] ? (
+                            <Image
+                              src={product.imageUrls[0]}
+                              alt={product.title}
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Sparkles className="h-5 w-5 text-sage-300" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-charcoal-700 line-clamp-1">
+                            {product.title}
+                          </p>
+                          <p className="text-xs text-charcoal-400">
+                            {product.size} · {product.sizeCategory}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge className={statusColors[product.status]}>
+                        {product.status === "sold-out" 
+                          ? "Sold Out" 
+                          : product.status.charAt(0).toUpperCase() + product.status.slice(1)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-sm ${
+                          product.stock === 0
+                            ? "text-red-500"
+                            : product.stock <= 3
+                            ? "text-amber-600"
+                            : "text-charcoal-600"
+                        }`}
+                      >
+                        {product.stock === 0 ? "Out of stock" : product.stock}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-charcoal-700">
+                        £{product.price.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-charcoal-600">
+                        {getCategoryName(product.categoryId)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/shop/${product.slug}`}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/products/${product._id}`}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => {
+                              setProductToDelete(product._id);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {filteredProducts.length === 0 && (
+        {!isLoading && filteredProducts.length === 0 && (
           <div className="p-12 text-center">
             <Sparkles className="h-12 w-12 text-sage-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-charcoal-700 mb-2">
@@ -368,21 +403,34 @@ export default function ProductsPage() {
       </Card>
 
       {/* Pagination */}
-      {filteredProducts.length > 0 && (
+      {!isLoading && filteredProducts.length > 0 && (
         <div className="mt-4 flex items-center justify-between text-sm text-charcoal-500">
           <span>
-            Showing {filteredProducts.length} of {products.length} products
+            Showing {filteredProducts.length} of {products?.length ?? 0} products
           </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
-          </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this product? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
