@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Save, Store, Truck, CreditCard, Bell, Palette, Mail } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Save, Store, Truck, Bell, Palette, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -12,16 +14,119 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
+interface StoreInfo {
+  name: string;
+  email: string;
+  location: string;
+  description: string;
+}
+
+interface SeasonalBanner {
+  enabled: boolean;
+  text: string;
+}
+
+interface DeliveryPrices {
+  small: number;
+  large: number;
+  smallTime: string;
+  largeTime: string;
+  collectionAddress: string;
+}
+
+interface Notifications {
+  newOrders: boolean;
+  bespokeEnquiries: boolean;
+  lowStock: boolean;
+  newsletter: boolean;
+  contactForm: boolean;
+}
+
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
+  const [holidayMode, setHolidayMode] = useState(false);
+
+  // Form state
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>({
+    name: "Forever Faux Wreaths",
+    email: "Info@foreverfauxwreaths.co.uk",
+    location: "Preston, Lancashire, UK",
+    description: "Handcrafted faux floral wreaths made with love. Ready-made designs and bespoke creations for your home.",
+  });
+
+  const [seasonalBanner, setSeasonalBanner] = useState<SeasonalBanner>({
+    enabled: false,
+    text: "",
+  });
+
+  const [deliveryPrices, setDeliveryPrices] = useState<DeliveryPrices>({
+    small: 4.99,
+    large: 7.99,
+    smallTime: "3-5 working days",
+    largeTime: "3-5 working days",
+    collectionAddress: "Preston, Lancashire (exact address provided after order)",
+  });
+
+  const [notifications, setNotifications] = useState<Notifications>({
+    newOrders: true,
+    bespokeEnquiries: true,
+    lowStock: true,
+    newsletter: false,
+    contactForm: true,
+  });
+
+  // Convex
+  const settings = useQuery(api.siteSettings.getAll);
+  const setSetting = useMutation(api.siteSettings.set);
+
+  const isLoading = settings === undefined;
+
+  // Load settings from Convex
+  useEffect(() => {
+    if (settings) {
+      if (settings.storeInfo) {
+        setStoreInfo(settings.storeInfo as StoreInfo);
+      }
+      if (settings.seasonalBanner) {
+        setSeasonalBanner(settings.seasonalBanner as SeasonalBanner);
+      }
+      if (settings.deliveryPrices) {
+        setDeliveryPrices(settings.deliveryPrices as DeliveryPrices);
+      }
+      if (settings.notifications) {
+        setNotifications(settings.notifications as Notifications);
+      }
+      if (settings.holidayMode !== undefined) {
+        setHolidayMode(settings.holidayMode as boolean);
+      }
+    }
+  }, [settings]);
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate save
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Settings saved successfully");
-    setIsSaving(false);
+    try {
+      await Promise.all([
+        setSetting({ key: "storeInfo", value: storeInfo }),
+        setSetting({ key: "seasonalBanner", value: seasonalBanner }),
+        setSetting({ key: "deliveryPrices", value: deliveryPrices }),
+        setSetting({ key: "notifications", value: notifications }),
+        setSetting({ key: "holidayMode", value: holidayMode }),
+      ]);
+      toast.success("Settings saved successfully");
+    } catch (error) {
+      toast.error("Failed to save settings");
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-sage-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -36,31 +141,31 @@ export default function SettingsPage() {
           disabled={isSaving}
           className="bg-sage-400 hover:bg-sage-500 text-white"
         >
-          <Save className="h-4 w-4 mr-2" />
-          {isSaving ? "Saving..." : "Save Changes"}
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </>
+          )}
         </Button>
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="bg-cream-200">
-          <TabsTrigger
-            value="general"
-            className="data-[state=active]:bg-white"
-          >
+          <TabsTrigger value="general" className="data-[state=active]:bg-white">
             <Store className="h-4 w-4 mr-2" />
             General
           </TabsTrigger>
-          <TabsTrigger
-            value="delivery"
-            className="data-[state=active]:bg-white"
-          >
+          <TabsTrigger value="delivery" className="data-[state=active]:bg-white">
             <Truck className="h-4 w-4 mr-2" />
             Delivery
           </TabsTrigger>
-          <TabsTrigger
-            value="notifications"
-            className="data-[state=active]:bg-white"
-          >
+          <TabsTrigger value="notifications" className="data-[state=active]:bg-white">
             <Bell className="h-4 w-4 mr-2" />
             Notifications
           </TabsTrigger>
@@ -82,7 +187,8 @@ export default function SettingsPage() {
                   <div>
                     <Label>Store Name</Label>
                     <Input
-                      defaultValue="Forever Faux Wreaths"
+                      value={storeInfo.name}
+                      onChange={(e) => setStoreInfo({ ...storeInfo, name: e.target.value })}
                       className="mt-1"
                     />
                   </div>
@@ -90,7 +196,8 @@ export default function SettingsPage() {
                     <Label>Contact Email</Label>
                     <Input
                       type="email"
-                      defaultValue="Info@foreverfauxwreaths.co.uk"
+                      value={storeInfo.email}
+                      onChange={(e) => setStoreInfo({ ...storeInfo, email: e.target.value })}
                       className="mt-1"
                     />
                   </div>
@@ -99,7 +206,8 @@ export default function SettingsPage() {
                 <div>
                   <Label>Location</Label>
                   <Input
-                    defaultValue="Preston, Lancashire, UK"
+                    value={storeInfo.location}
+                    onChange={(e) => setStoreInfo({ ...storeInfo, location: e.target.value })}
                     className="mt-1"
                   />
                 </div>
@@ -107,7 +215,8 @@ export default function SettingsPage() {
                 <div>
                   <Label>Store Description</Label>
                   <Textarea
-                    defaultValue="Handcrafted faux floral wreaths made with love. Ready-made designs and bespoke creations for your home."
+                    value={storeInfo.description}
+                    onChange={(e) => setStoreInfo({ ...storeInfo, description: e.target.value })}
                     rows={3}
                     className="mt-1"
                   />
@@ -126,14 +235,15 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-charcoal-700">
-                      Holiday Mode
-                    </p>
+                    <p className="font-medium text-charcoal-700">Holiday Mode</p>
                     <p className="text-sm text-charcoal-500">
                       Temporarily disable new orders
                     </p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={holidayMode}
+                    onCheckedChange={setHolidayMode}
+                  />
                 </div>
 
                 <Separator />
@@ -147,16 +257,27 @@ export default function SettingsPage() {
                       Display promotional banner on homepage
                     </p>
                   </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div>
-                  <Label>Banner Message</Label>
-                  <Input
-                    defaultValue="Christmas orders now open! Order by December 10th for guaranteed delivery."
-                    className="mt-1"
+                  <Switch
+                    checked={seasonalBanner.enabled}
+                    onCheckedChange={(checked) =>
+                      setSeasonalBanner({ ...seasonalBanner, enabled: checked })
+                    }
                   />
                 </div>
+
+                {seasonalBanner.enabled && (
+                  <div>
+                    <Label>Banner Message</Label>
+                    <Input
+                      value={seasonalBanner.text}
+                      onChange={(e) =>
+                        setSeasonalBanner({ ...seasonalBanner, text: e.target.value })
+                      }
+                      placeholder="e.g., Christmas orders now open!"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
               </div>
             </Card>
           </div>
@@ -175,31 +296,38 @@ export default function SettingsPage() {
 
               <div className="space-y-6">
                 <div className="p-4 bg-cream-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="font-medium text-charcoal-700">
-                        Small Items Delivery
-                      </p>
-                      <p className="text-sm text-charcoal-500">
-                        Wreaths under 30cm
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
+                  <p className="font-medium text-charcoal-700 mb-4">
+                    Small Items Delivery
+                  </p>
+                  <p className="text-sm text-charcoal-500 mb-4">
+                    Wreaths under 30cm
+                  </p>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <Label>Price (£)</Label>
                       <Input
                         type="number"
                         step="0.01"
-                        defaultValue="4.99"
+                        value={deliveryPrices.small}
+                        onChange={(e) =>
+                          setDeliveryPrices({
+                            ...deliveryPrices,
+                            small: parseFloat(e.target.value) || 0,
+                          })
+                        }
                         className="mt-1"
                       />
                     </div>
                     <div>
                       <Label>Delivery Time</Label>
                       <Input
-                        defaultValue="3-5 working days"
+                        value={deliveryPrices.smallTime}
+                        onChange={(e) =>
+                          setDeliveryPrices({
+                            ...deliveryPrices,
+                            smallTime: e.target.value,
+                          })
+                        }
                         className="mt-1"
                       />
                     </div>
@@ -207,31 +335,38 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="p-4 bg-cream-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="font-medium text-charcoal-700">
-                        Large Items Delivery
-                      </p>
-                      <p className="text-sm text-charcoal-500">
-                        Wreaths 30cm and above
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
+                  <p className="font-medium text-charcoal-700 mb-4">
+                    Large Items Delivery
+                  </p>
+                  <p className="text-sm text-charcoal-500 mb-4">
+                    Wreaths 30cm and above
+                  </p>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <Label>Price (£)</Label>
                       <Input
                         type="number"
                         step="0.01"
-                        defaultValue="7.99"
+                        value={deliveryPrices.large}
+                        onChange={(e) =>
+                          setDeliveryPrices({
+                            ...deliveryPrices,
+                            large: parseFloat(e.target.value) || 0,
+                          })
+                        }
                         className="mt-1"
                       />
                     </div>
                     <div>
                       <Label>Delivery Time</Label>
                       <Input
-                        defaultValue="3-5 working days"
+                        value={deliveryPrices.largeTime}
+                        onChange={(e) =>
+                          setDeliveryPrices({
+                            ...deliveryPrices,
+                            largeTime: e.target.value,
+                          })
+                        }
                         className="mt-1"
                       />
                     </div>
@@ -239,57 +374,23 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="p-4 bg-cream-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="font-medium text-charcoal-700">
-                        Local Collection
-                      </p>
-                      <p className="text-sm text-charcoal-500">
-                        Preston, Lancashire
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
+                  <p className="font-medium text-charcoal-700 mb-4">
+                    Local Collection
+                  </p>
+                  <p className="text-sm text-charcoal-500 mb-4">Free</p>
                   <div>
-                    <Label>Collection Address</Label>
+                    <Label>Collection Address Info</Label>
                     <Input
-                      defaultValue="Preston, Lancashire (exact address provided after order)"
+                      value={deliveryPrices.collectionAddress}
+                      onChange={(e) =>
+                        setDeliveryPrices({
+                          ...deliveryPrices,
+                          collectionAddress: e.target.value,
+                        })
+                      }
                       className="mt-1"
                     />
                   </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6 border-cream-300 bg-white">
-              <div className="flex items-center gap-3 mb-6">
-                <CreditCard className="h-5 w-5 text-sage-600" />
-                <h2 className="text-lg font-medium text-charcoal-700">
-                  Payment Settings
-                </h2>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-charcoal-700">PayPal</p>
-                    <p className="text-sm text-charcoal-500">
-                      Accept PayPal and Pay Later
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-charcoal-700">SumUp</p>
-                    <p className="text-sm text-charcoal-500">
-                      Accept card payments
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
                 </div>
               </div>
             </Card>
@@ -314,63 +415,80 @@ export default function SettingsPage() {
                     Get notified when a new order is placed
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notifications.newOrders}
+                  onCheckedChange={(checked) =>
+                    setNotifications({ ...notifications, newOrders: checked })
+                  }
+                />
               </div>
 
               <Separator />
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-charcoal-700">
-                    Bespoke Enquiries
-                  </p>
+                  <p className="font-medium text-charcoal-700">Bespoke Enquiries</p>
                   <p className="text-sm text-charcoal-500">
                     Get notified when someone submits an enquiry
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notifications.bespokeEnquiries}
+                  onCheckedChange={(checked) =>
+                    setNotifications({ ...notifications, bespokeEnquiries: checked })
+                  }
+                />
               </div>
 
               <Separator />
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-charcoal-700">
-                    Low Stock Alerts
-                  </p>
+                  <p className="font-medium text-charcoal-700">Low Stock Alerts</p>
                   <p className="text-sm text-charcoal-500">
                     Get notified when a product is running low
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notifications.lowStock}
+                  onCheckedChange={(checked) =>
+                    setNotifications({ ...notifications, lowStock: checked })
+                  }
+                />
               </div>
 
               <Separator />
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-charcoal-700">
-                    Newsletter Signups
-                  </p>
+                  <p className="font-medium text-charcoal-700">Newsletter Signups</p>
                   <p className="text-sm text-charcoal-500">
                     Get notified when someone joins your mailing list
                   </p>
                 </div>
-                <Switch />
+                <Switch
+                  checked={notifications.newsletter}
+                  onCheckedChange={(checked) =>
+                    setNotifications({ ...notifications, newsletter: checked })
+                  }
+                />
               </div>
 
               <Separator />
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-charcoal-700">
-                    Contact Form Messages
-                  </p>
+                  <p className="font-medium text-charcoal-700">Contact Form Messages</p>
                   <p className="text-sm text-charcoal-500">
                     Get notified when someone sends a message
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notifications.contactForm}
+                  onCheckedChange={(checked) =>
+                    setNotifications({ ...notifications, contactForm: checked })
+                  }
+                />
               </div>
             </div>
           </Card>

@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import Image from "next/image";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import {
   Search,
   MoreHorizontal,
@@ -10,6 +14,8 @@ import {
   Upload,
   Sparkles,
   Image as ImageIcon,
+  Loader2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,70 +40,20 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-
-// Placeholder gallery images
-const galleryImages = [
-  {
-    id: "1",
-    title: "Spring Blossom Wreath",
-    category: "seasonal",
-    featured: true,
-    uploadedAt: "2024-11-10",
-  },
-  {
-    id: "2",
-    title: "Classic Eucalyptus",
-    category: "classic",
-    featured: true,
-    uploadedAt: "2024-11-08",
-  },
-  {
-    id: "3",
-    title: "Memorial Rose Tribute",
-    category: "memorial",
-    featured: false,
-    uploadedAt: "2024-11-05",
-  },
-  {
-    id: "4",
-    title: "Autumn Door Wreath",
-    category: "seasonal",
-    featured: true,
-    uploadedAt: "2024-10-28",
-  },
-  {
-    id: "5",
-    title: "Modern Greenery",
-    category: "modern",
-    featured: false,
-    uploadedAt: "2024-10-20",
-  },
-  {
-    id: "6",
-    title: "Lavender Mini Wreath",
-    category: "classic",
-    featured: false,
-    uploadedAt: "2024-10-15",
-  },
-  {
-    id: "7",
-    title: "Christmas Berry Wreath",
-    category: "seasonal",
-    featured: true,
-    uploadedAt: "2024-10-10",
-  },
-  {
-    id: "8",
-    title: "Peony & Rose Design",
-    category: "classic",
-    featured: false,
-    uploadedAt: "2024-10-05",
-  },
-];
+import { toast } from "sonner";
 
 const categories = [
   { value: "all", label: "All Categories" },
@@ -114,15 +70,32 @@ export default function GalleryAdminPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState<Id<"galleryImages"> | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState("classic");
+  const [uploadFeatured, setUploadFeatured] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
-  const filteredImages = galleryImages.filter((image) => {
-    const matchesSearch = image.title
+  // Convex queries and mutations
+  const galleryImages = useQuery(api.galleryImages.list, {
+    visible: undefined, // Show all for admin
+  });
+  const generateUploadUrl = useMutation(api.galleryImages.generateUploadUrl);
+  const createImage = useMutation(api.galleryImages.create);
+  const updateImage = useMutation(api.galleryImages.update);
+  const deleteImage = useMutation(api.galleryImages.remove);
+
+  const isLoading = galleryImages === undefined;
+
+  const filteredImages = galleryImages?.filter((image) => {
+    const matchesSearch = (image.title || "")
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesCategory =
       categoryFilter === "all" || image.category === categoryFilter;
     return matchesSearch && matchesCategory;
-  });
+  }) ?? [];
 
   const toggleSelect = (id: string) => {
     if (selectedImages.includes(id)) {
@@ -136,7 +109,90 @@ export default function GalleryAdminPage() {
     if (selectedImages.length === filteredImages.length) {
       setSelectedImages([]);
     } else {
-      setSelectedImages(filteredImages.map((i) => i.id));
+      setSelectedImages(filteredImages.map((i) => i._id));
+    }
+  };
+
+  const handleFilesSelected = (files: FileList | null) => {
+    if (!files) return;
+    setPendingFiles(Array.from(files));
+  };
+
+  const handleUpload = useCallback(async () => {
+    if (pendingFiles.length === 0) return;
+
+    setIsUploading(true);
+    let successCount = 0;
+
+    try {
+      for (const file of pendingFiles) {
+        if (!file.type.startsWith("image/")) continue;
+
+        const uploadUrl = await generateUploadUrl();
+        const result = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+
+        if (!result.ok) continue;
+
+        const { storageId } = await result.json();
+        
+        // Get current max sortOrder
+        const maxSort = galleryImages?.reduce((max, img) => Math.max(max, img.sortOrder), 0) ?? 0;
+
+        await createImage({
+          imageId: storageId,
+          title: file.name.replace(/\.[^/.]+$/, ""),
+          category: uploadCategory,
+          sortOrder: maxSort + 1,
+          visible: true,
+        });
+
+        successCount++;
+      }
+
+      toast.success(`${successCount} image(s) uploaded successfully`);
+      setPendingFiles([]);
+      setUploadDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to upload images");
+    } finally {
+      setIsUploading(false);
+    }
+  }, [pendingFiles, generateUploadUrl, createImage, uploadCategory, galleryImages]);
+
+  const handleDelete = async () => {
+    if (!imageToDelete) return;
+    try {
+      await deleteImage({ id: imageToDelete });
+      toast.success("Image deleted");
+      setImageToDelete(null);
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to delete image");
+    }
+  };
+
+  const handleToggleVisibility = async (id: Id<"galleryImages">, currentVisible: boolean) => {
+    try {
+      await updateImage({ id, visible: !currentVisible });
+      toast.success(currentVisible ? "Image hidden" : "Image visible");
+    } catch (error) {
+      toast.error("Failed to update image");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(
+        selectedImages.map((id) => deleteImage({ id: id as Id<"galleryImages"> }))
+      );
+      toast.success(`${selectedImages.length} image(s) deleted`);
+      setSelectedImages([]);
+    } catch (error) {
+      toast.error("Failed to delete images");
     }
   };
 
@@ -146,67 +202,15 @@ export default function GalleryAdminPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl text-charcoal-700 mb-1">Gallery</h1>
-          <p className="text-charcoal-500">
-            Manage your portfolio images
-          </p>
+          <p className="text-charcoal-500">Manage your portfolio images</p>
         </div>
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-sage-400 hover:bg-sage-500 text-white">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Images
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Upload Images</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-cream-400 rounded-lg p-8 text-center">
-                <ImageIcon className="h-12 w-12 text-charcoal-300 mx-auto mb-4" />
-                <p className="text-charcoal-600 mb-2">
-                  Drag and drop images here
-                </p>
-                <p className="text-sm text-charcoal-400 mb-4">
-                  or click to browse
-                </p>
-                <Button variant="outline">Select Files</Button>
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Select defaultValue="classic">
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories
-                      .filter((c) => c.value !== "all")
-                      .map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="featured" />
-                <Label htmlFor="featured">Mark as featured</Label>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button className="bg-sage-400 hover:bg-sage-500 text-white">
-                  Upload
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setUploadDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button
+          onClick={() => setUploadDialogOpen(true)}
+          className="bg-sage-400 hover:bg-sage-500 text-white"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Upload Images
+        </Button>
       </div>
 
       {/* Filters */}
@@ -243,121 +247,134 @@ export default function GalleryAdminPage() {
             {selectedImages.length} image(s) selected
           </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              Set Featured
-            </Button>
-            <Button variant="outline" size="sm">
-              Change Category
-            </Button>
             <Button
               variant="outline"
               size="sm"
               className="text-destructive hover:bg-destructive/10"
+              onClick={handleBulkDelete}
             >
-              Delete
+              Delete Selected
             </Button>
           </div>
         </div>
       )}
 
       {/* Select All */}
-      <div className="mb-4 flex items-center gap-2">
-        <Checkbox
-          checked={
-            selectedImages.length === filteredImages.length &&
-            filteredImages.length > 0
-          }
-          onCheckedChange={toggleSelectAll}
-        />
-        <span className="text-sm text-charcoal-500">Select all</span>
-      </div>
+      {!isLoading && filteredImages.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <Checkbox
+            checked={
+              selectedImages.length === filteredImages.length &&
+              filteredImages.length > 0
+            }
+            onCheckedChange={toggleSelectAll}
+          />
+          <span className="text-sm text-charcoal-500">Select all</span>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="p-12 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-sage-400 mx-auto mb-4" />
+          <p className="text-charcoal-500">Loading gallery...</p>
+        </div>
+      )}
 
       {/* Gallery Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filteredImages.map((image) => (
-          <Card
-            key={image.id}
-            className={`relative overflow-hidden border-cream-300 bg-white group ${
-              selectedImages.includes(image.id) ? "ring-2 ring-sage-400" : ""
-            }`}
-          >
-            <div className="aspect-square bg-cream-200 relative">
-              {/* Placeholder */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Sparkles className="h-12 w-12 text-sage-300" />
-              </div>
+      {!isLoading && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredImages.map((image) => (
+            <Card
+              key={image._id}
+              className={`relative overflow-hidden border-cream-300 bg-white group ${
+                selectedImages.includes(image._id) ? "ring-2 ring-sage-400" : ""
+              } ${!image.visible ? "opacity-60" : ""}`}
+            >
+              <div className="aspect-square bg-cream-200 relative">
+                {image.imageUrl ? (
+                  <Image
+                    src={image.imageUrl}
+                    alt={image.title || "Gallery image"}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles className="h-12 w-12 text-sage-300" />
+                  </div>
+                )}
 
-              {/* Checkbox */}
-              <div className="absolute top-2 left-2 z-10">
-                <Checkbox
-                  checked={selectedImages.includes(image.id)}
-                  onCheckedChange={() => toggleSelect(image.id)}
-                  className="bg-white"
-                />
-              </div>
-
-              {/* Featured Badge */}
-              {image.featured && (
-                <Badge className="absolute top-2 right-2 bg-sage-400 text-white">
-                  Featured
-                </Badge>
-              )}
-
-              {/* Hover Overlay */}
-              <div className="absolute inset-0 bg-charcoal-900/0 group-hover:bg-charcoal-900/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <div className="flex gap-2">
-                  <Button size="icon" variant="secondary" className="h-8 w-8">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="secondary" className="h-8 w-8">
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                {/* Checkbox */}
+                <div className="absolute top-2 left-2 z-10">
+                  <Checkbox
+                    checked={selectedImages.includes(image._id)}
+                    onCheckedChange={() => toggleSelect(image._id)}
+                    className="bg-white"
+                  />
                 </div>
-              </div>
-            </div>
 
-            <div className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium text-charcoal-700 text-sm truncate">
-                    {image.title}
-                  </p>
-                  <p className="text-xs text-charcoal-400 capitalize">
-                    {image.category}
-                  </p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                      <MoreHorizontal className="h-4 w-4" />
+                {/* Hidden Badge */}
+                {!image.visible && (
+                  <Badge className="absolute top-2 right-2 bg-charcoal-500 text-white">
+                    Hidden
+                  </Badge>
+                )}
+
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-charcoal-900/0 group-hover:bg-charcoal-900/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="flex gap-2">
+                    <Button size="icon" variant="secondary" className="h-8 w-8">
+                      <Eye className="h-4 w-4" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      {image.featured ? "Remove from Featured" : "Add to Featured"}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </div>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
-      </div>
 
-      {filteredImages.length === 0 && (
+              <div className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-charcoal-700 text-sm truncate">
+                      {image.title || "Untitled"}
+                    </p>
+                    <p className="text-xs text-charcoal-400 capitalize">
+                      {image.category || "Uncategorized"}
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleToggleVisibility(image._id, image.visible)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        {image.visible ? "Hide" : "Show"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => {
+                          setImageToDelete(image._id);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && filteredImages.length === 0 && (
         <Card className="p-12 border-cream-300 bg-white text-center">
           <ImageIcon className="h-12 w-12 text-sage-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-charcoal-700 mb-2">
@@ -381,14 +398,131 @@ export default function GalleryAdminPage() {
       )}
 
       {/* Stats */}
-      <div className="mt-6 flex items-center justify-between text-sm text-charcoal-500">
-        <span>
-          {filteredImages.length} of {galleryImages.length} images
-        </span>
-        <span>
-          {galleryImages.filter((i) => i.featured).length} featured
-        </span>
-      </div>
+      {!isLoading && filteredImages.length > 0 && (
+        <div className="mt-6 flex items-center justify-between text-sm text-charcoal-500">
+          <span>
+            {filteredImages.length} of {galleryImages?.length ?? 0} images
+          </span>
+          <span>
+            {galleryImages?.filter((i) => i.visible).length ?? 0} visible
+          </span>
+        </div>
+      )}
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Images</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {pendingFiles.length === 0 ? (
+              <label className="border-2 border-dashed border-cream-400 rounded-lg p-8 text-center cursor-pointer hover:border-sage-400 transition-colors block">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFilesSelected(e.target.files)}
+                />
+                <ImageIcon className="h-12 w-12 text-charcoal-300 mx-auto mb-4" />
+                <p className="text-charcoal-600 mb-2">
+                  Click to select images
+                </p>
+                <p className="text-sm text-charcoal-400">
+                  or drag and drop
+                </p>
+              </label>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-charcoal-600">
+                  {pendingFiles.length} file(s) selected:
+                </p>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {pendingFiles.map((file, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm bg-cream-50 p-2 rounded">
+                      <span className="truncate">{file.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => setPendingFiles(pendingFiles.filter((_, j) => j !== i))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label>Category</Label>
+              <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories
+                    .filter((c) => c.value !== "all")
+                    .map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={handleUpload}
+                disabled={isUploading || pendingFiles.length === 0}
+                className="bg-sage-400 hover:bg-sage-500 text-white"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  "Upload"
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setUploadDialogOpen(false);
+                  setPendingFiles([]);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Image</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this image? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
