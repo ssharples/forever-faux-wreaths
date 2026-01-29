@@ -45,13 +45,13 @@ import { toast } from "sonner";
 type EnquiryStatus = "new" | "in-discussion" | "quoted" | "accepted" | "in-progress" | "complete" | "cancelled";
 
 const statusConfig: Record<EnquiryStatus, { color: string; label: string }> = {
-  "new": { color: "bg-blue-100 text-blue-700", label: "New" },
+  "new": { color: "bg-sage-100 text-sage-700", label: "New" },
   "in-discussion": { color: "bg-amber-100 text-amber-700", label: "In Discussion" },
-  "quoted": { color: "bg-purple-100 text-purple-700", label: "Quoted" },
-  "accepted": { color: "bg-sage-100 text-sage-700", label: "Accepted" },
-  "in-progress": { color: "bg-orange-100 text-orange-700", label: "In Progress" },
-  "complete": { color: "bg-green-100 text-green-700", label: "Complete" },
-  "cancelled": { color: "bg-red-100 text-red-700", label: "Cancelled" },
+  "quoted": { color: "bg-gold-400/20 text-gold-500", label: "Quoted" },
+  "accepted": { color: "bg-sage-200 text-sage-700", label: "Accepted" },
+  "in-progress": { color: "bg-amber-200 text-amber-700", label: "In Progress" },
+  "complete": { color: "bg-success/20 text-success", label: "Complete" },
+  "cancelled": { color: "bg-error/20 text-error", label: "Cancelled" },
 };
 
 const nextStatus: Partial<Record<EnquiryStatus, EnquiryStatus>> = {

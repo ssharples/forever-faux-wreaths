@@ -33,7 +33,7 @@ export function SeasonalBanner({
 
   const variantStyles = {
     sage: "bg-sage-400 text-white",
-    christmas: "bg-[#8B2635] text-white",
+    christmas: "bg-christmas-red text-white",
     spring: "bg-blush-400 text-charcoal-700",
   };
 

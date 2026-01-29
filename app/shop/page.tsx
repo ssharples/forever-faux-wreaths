@@ -444,7 +444,7 @@ export default function ShopPage() {
                   <Badge
                     key={style}
                     variant="secondary"
-                    className="bg-sage-100 text-sage-700 pr-1"
+                    className="bg-sage-100 text-sage-700 pr-1 min-h-[36px] md:min-h-0 flex items-center"
                   >
                     {styles.find((s) => s.value === style)?.label}
                     <button
@@ -453,9 +453,10 @@ export default function ShopPage() {
                           selectedStyles.filter((s) => s !== style)
                         )
                       }
-                      className="ml-1 p-0.5 hover:bg-sage-200 rounded"
+                      className="ml-1 p-2 md:p-0.5 -mr-1 md:mr-0 hover:bg-sage-200 rounded touch-manipulation"
+                      aria-label={`Remove ${styles.find((s) => s.value === style)?.label} filter`}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4 md:h-3 md:w-3" />
                     </button>
                   </Badge>
                 ))}
@@ -463,7 +464,7 @@ export default function ShopPage() {
                   <Badge
                     key={size}
                     variant="secondary"
-                    className="bg-sage-100 text-sage-700 pr-1"
+                    className="bg-sage-100 text-sage-700 pr-1 min-h-[36px] md:min-h-0 flex items-center"
                   >
                     {sizes.find((s) => s.value === size)?.label}
                     <button
@@ -472,15 +473,16 @@ export default function ShopPage() {
                           selectedSizes.filter((s) => s !== size)
                         )
                       }
-                      className="ml-1 p-0.5 hover:bg-sage-200 rounded"
+                      className="ml-1 p-2 md:p-0.5 -mr-1 md:mr-0 hover:bg-sage-200 rounded touch-manipulation"
+                      aria-label={`Remove ${sizes.find((s) => s.value === size)?.label} filter`}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4 md:h-3 md:w-3" />
                     </button>
                   </Badge>
                 ))}
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-charcoal-500 hover:text-charcoal-700 underline"
+                  className="text-sm text-charcoal-500 hover:text-charcoal-700 underline min-h-[44px] md:min-h-0 px-2 flex items-center touch-manipulation"
                 >
                   Clear all
                 </button>
@@ -554,10 +556,10 @@ export default function ShopPage() {
                             <div className="absolute inset-0 bg-charcoal-900/0 group-hover:bg-charcoal-900/5 transition-colors" />
                           </div>
                           <CardContent className="p-3 md:p-4">
-                            <h3 className="font-medium text-charcoal-600 group-hover:text-sage-600 transition-colors line-clamp-2 text-xs sm:text-sm md:text-base mb-1.5 md:mb-2">
+                            <h3 className="font-medium text-charcoal-600 group-hover:text-sage-600 transition-colors line-clamp-2 text-sm md:text-base mb-1.5 md:mb-2">
                               {product.title}
                             </h3>
-                            <div className="flex items-center justify-between gap-1 md:gap-2">
+                            <div className="flex items-center justify-between gap-2">
                               <p className="font-display text-base md:text-lg text-charcoal-700">
                                 £{product.price}
                               </p>

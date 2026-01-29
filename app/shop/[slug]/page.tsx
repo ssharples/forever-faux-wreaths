@@ -110,10 +110,10 @@ export default function ProductPage() {
 
       <main className="flex-1 bg-cream-100">
         {/* Breadcrumb */}
-        <div className="container-wide py-4">
+        <div className="container-wide py-2 md:py-4">
           <Link
             href="/shop"
-            className="inline-flex items-center text-sm text-charcoal-500 hover:text-sage-600 transition-colors"
+            className="inline-flex items-center min-h-[44px] md:min-h-0 px-1 -mx-1 text-sm text-charcoal-500 hover:text-sage-600 transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Shop
@@ -160,13 +160,15 @@ export default function ProductPage() {
                     <>
                       <button
                         onClick={prevImage}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 h-11 w-11 md:h-10 md:w-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors touch-manipulation"
+                        aria-label="Previous image"
                       >
                         <ChevronLeft className="h-5 w-5 text-charcoal-600" />
                       </button>
                       <button
                         onClick={nextImage}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 h-11 w-11 md:h-10 md:w-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors touch-manipulation"
+                        aria-label="Next image"
                       >
                         <ChevronRight className="h-5 w-5 text-charcoal-600" />
                       </button>
@@ -252,7 +254,8 @@ export default function ProductPage() {
                       <button
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         disabled={quantity <= 1}
-                        className="p-3 text-charcoal-500 hover:text-charcoal-700 disabled:opacity-50"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-100 disabled:opacity-50 transition-colors touch-manipulation"
+                        aria-label="Decrease quantity"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
@@ -264,7 +267,8 @@ export default function ProductPage() {
                           setQuantity(Math.min(product.stock, quantity + 1))
                         }
                         disabled={quantity >= product.stock}
-                        className="p-3 text-charcoal-500 hover:text-charcoal-700 disabled:opacity-50"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-100 disabled:opacity-50 transition-colors touch-manipulation"
+                        aria-label="Increase quantity"
                       >
                         <Plus className="h-4 w-4" />
                       </button>

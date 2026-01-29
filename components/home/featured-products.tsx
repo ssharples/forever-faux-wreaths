@@ -62,11 +62,11 @@ export function FeaturedProducts() {
               )}
               <div className="absolute inset-0 bg-charcoal-900/0 group-hover:bg-charcoal-900/5 transition-colors" />
             </div>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <h3 className="font-medium text-charcoal-600 group-hover:text-sage-600 transition-colors line-clamp-2 text-sm sm:text-base">
                 {product.title}
               </h3>
-              <p className="mt-1 font-display text-lg text-charcoal-700">
+              <p className="mt-1 font-display text-base sm:text-lg text-charcoal-700">
                 £{product.price}
               </p>
             </CardContent>

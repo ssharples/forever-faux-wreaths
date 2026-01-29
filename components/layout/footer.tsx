@@ -121,12 +121,12 @@ export function Footer() {
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
                   Shop
                 </h3>
-                <ul role="list" className="mt-4 space-y-3">
+                <ul role="list" className="mt-4 space-y-1">
                   {footerNavigation.shop.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -138,12 +138,12 @@ export function Footer() {
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
                   Services
                 </h3>
-                <ul role="list" className="mt-4 space-y-3">
+                <ul role="list" className="mt-4 space-y-1">
                   {footerNavigation.services.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -157,12 +157,12 @@ export function Footer() {
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
                   Support
                 </h3>
-                <ul role="list" className="mt-4 space-y-3">
+                <ul role="list" className="mt-4 space-y-1">
                   {footerNavigation.support.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -174,12 +174,12 @@ export function Footer() {
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
                   Legal
                 </h3>
-                <ul role="list" className="mt-4 space-y-3">
+                <ul role="list" className="mt-4 space-y-1">
                   {footerNavigation.legal.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>

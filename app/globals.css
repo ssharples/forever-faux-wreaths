@@ -67,6 +67,16 @@
   --color-error: #C45C5C;
   --color-warning: #D4A85A;
 
+  /* Seasonal colors */
+  --color-christmas-red: #8B2635;
+  --color-christmas-red-dark: #6B1D28;
+  
+  /* Status colors (amber for in-progress) */
+  --color-amber-100: #FEF3C7;
+  --color-amber-200: #FDE68A;
+  --color-amber-600: #D97706;
+  --color-amber-700: #B45309;
+
   /* Font families - CSS variables injected by next/font */
   /* --font-display, --font-body, --font-handwritten are set on <html> by next/font */
 
@@ -164,49 +174,42 @@
   }
 
   h1 {
-    @apply text-3xl md:text-4xl lg:text-5xl font-normal tracking-tight;
-    color: #4A5248;
+    @apply text-3xl md:text-4xl lg:text-5xl font-normal tracking-tight text-charcoal-600;
     line-height: 1.2;
   }
 
   h2 {
-    @apply text-2xl md:text-3xl lg:text-4xl font-normal;
-    color: #4A5248;
+    @apply text-2xl md:text-3xl lg:text-4xl font-normal text-charcoal-600;
     line-height: 1.25;
     letter-spacing: -0.01em;
   }
 
   h3 {
-    @apply text-xl md:text-2xl lg:text-3xl font-medium;
-    color: #4A5248;
+    @apply text-xl md:text-2xl lg:text-3xl font-medium text-charcoal-600;
     line-height: 1.3;
   }
 
   h4 {
-    @apply text-lg md:text-xl lg:text-2xl font-semibold;
+    @apply text-lg md:text-xl lg:text-2xl font-semibold text-charcoal-600;
     font-family: var(--font-body);
-    color: #4A5248;
     line-height: 1.4;
   }
 
   h5 {
-    @apply text-base md:text-lg lg:text-xl font-semibold;
+    @apply text-base md:text-lg lg:text-xl font-semibold text-charcoal-600;
     font-family: var(--font-body);
-    color: #4A5248;
     line-height: 1.4;
   }
 
   h6 {
-    @apply text-sm md:text-base lg:text-lg font-semibold;
+    @apply text-sm md:text-base lg:text-lg font-semibold text-charcoal-600;
     font-family: var(--font-body);
-    color: #4A5248;
     line-height: 1.5;
   }
 
   /* Paragraph styles */
   p {
-    @apply leading-relaxed;
-    color: #5E655A;
+    @apply leading-relaxed text-charcoal-500;
   }
 
   /* Links */
@@ -214,10 +217,9 @@
     @apply transition-colors duration-200;
   }
 
-  /* Focus states */
+  /* Focus states - uses ring token */
   :focus-visible {
-    outline: 2px solid #A3B18A;
-    outline-offset: 2px;
+    @apply outline-2 outline-sage-400 outline-offset-2;
   }
 }
 
@@ -234,8 +236,7 @@
   /* Hero text styles */
   .hero-title {
     font-family: var(--font-display);
-    @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal;
-    color: #4A5248;
+    @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal text-charcoal-600;
     letter-spacing: -0.02em;
     line-height: 1.1;
   }
@@ -294,11 +295,11 @@
 
   /* Star rating */
   .star-filled {
-    color: #D4B85A;
+    @apply text-gold-400;
   }
 
   .star-empty {
-    color: #E2D9CC;
+    @apply text-cream-400;
   }
 
   /* Prose styles for legal pages - mobile-first */
@@ -308,23 +309,19 @@
   }
 
   .prose h2 {
-    @apply text-xl md:text-2xl mt-8 md:mt-10 mb-3 md:mb-4 font-medium;
-    color: #4A5248;
+    @apply text-xl md:text-2xl mt-8 md:mt-10 mb-3 md:mb-4 font-medium text-charcoal-600;
   }
 
   .prose h3 {
-    @apply text-lg md:text-xl mt-6 md:mt-8 mb-2 md:mb-3 font-medium;
-    color: #4A5248;
+    @apply text-lg md:text-xl mt-6 md:mt-8 mb-2 md:mb-3 font-medium text-charcoal-600;
   }
 
   .prose p {
-    @apply mb-3 md:mb-4;
-    color: #5E655A;
+    @apply mb-3 md:mb-4 text-charcoal-500;
   }
 
   .prose ul, .prose ol {
-    @apply mb-3 md:mb-4 pl-5 md:pl-6;
-    color: #5E655A;
+    @apply mb-3 md:mb-4 pl-5 md:pl-6 text-charcoal-500;
   }
 
   .prose ul {
