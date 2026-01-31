@@ -292,9 +292,9 @@ export default function GalleryAdminPage() {
               } ${!image.visible ? "opacity-60" : ""}`}
             >
               <div className="aspect-square bg-cream-200 relative">
-                {image.imageUrl ? (
+                {image.url ? (
                   <Image
-                    src={image.imageUrl}
+                    src={image.url}
                     alt={image.title || "Gallery image"}
                     fill
                     className="object-cover"

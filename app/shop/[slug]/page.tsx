@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useSessionId } from "@/hooks/use-session-id";
 import {
   ArrowLeft,
   Heart,
@@ -69,22 +70,31 @@ export default function ProductPage() {
 
   // Fetch product from Convex
   const product = useQuery(api.products.getBySlug, { slug });
+  const sessionId = useSessionId();
+  const addToCartMutation = useMutation(api.cart.addItem);
 
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const handleAddToCart = async () => {
-    if (!product || product.stock === 0) return;
+    if (!product || product.stock === 0 || !sessionId) return;
 
     setIsAddingToCart(true);
-    // Simulate API call - in real app, use Convex mutation
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setIsAddingToCart(false);
-
-    toast.success(`${product.title} added to cart`, {
-      description: `Quantity: ${quantity}`,
-    });
+    try {
+      await addToCartMutation({
+        sessionId,
+        productId: product._id,
+        quantity,
+      });
+      toast.success(`${product.title} added to cart`, {
+        description: `Quantity: ${quantity}`,
+      });
+    } catch {
+      toast.error("Failed to add to cart");
+    } finally {
+      setIsAddingToCart(false);
+    }
   };
 
   const nextImage = () => {
@@ -278,7 +288,7 @@ export default function ProductPage() {
                       size="lg"
                       className="flex-1 bg-sage-400 hover:bg-sage-500 text-white"
                       onClick={handleAddToCart}
-                      disabled={product.stock === 0 || isAddingToCart}
+                      disabled={product.stock === 0 || isAddingToCart || !sessionId}
                     >
                       {isAddingToCart ? (
                         <>

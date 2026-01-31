@@ -206,3 +206,14 @@ export const generateUploadUrl = mutation({
     return await ctx.storage.generateUploadUrl();
   },
 });
+
+export const getActiveCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const activeProducts = await ctx.db
+      .query("products")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+    return activeProducts.length;
+  },
+});

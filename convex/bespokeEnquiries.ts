@@ -117,3 +117,42 @@ export const generateUploadUrl = mutation({
     return await ctx.storage.generateUploadUrl();
   },
 });
+
+export const getNewCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const newEnquiries = await ctx.db
+      .query("bespokeEnquiries")
+      .withIndex("by_status", (q) => q.eq("status", "new"))
+      .collect();
+    return newEnquiries.length;
+  },
+});
+
+export const getRecent = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 3;
+    const enquiries = await ctx.db
+      .query("bespokeEnquiries")
+      .order("desc")
+      .take(limit);
+
+    const enquiriesWithImages = await Promise.all(
+      enquiries.map(async (enquiry) => {
+        const imageUrls = await Promise.all(
+          enquiry.inspirationImages.map(async (imageId) => {
+            const url = await ctx.storage.getUrl(imageId);
+            return url;
+          })
+        );
+        return {
+          ...enquiry,
+          imageUrls: imageUrls.filter((url): url is string => url !== null),
+        };
+      })
+    );
+
+    return enquiriesWithImages;
+  },
+});
