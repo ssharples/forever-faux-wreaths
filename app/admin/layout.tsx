@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -29,7 +29,7 @@ const navigation = [
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-function Sidebar({ mobile = false }: { mobile?: boolean }) {
+function Sidebar({ mobile = false, onLogout }: { mobile?: boolean; onLogout: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -83,7 +83,10 @@ function Sidebar({ mobile = false }: { mobile?: boolean }) {
           <ChevronRight className="h-5 w-5 rotate-180" />
           Back to Site
         </Link>
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-charcoal-500 hover:text-destructive hover:bg-destructive/10 transition-colors">
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-charcoal-500 hover:text-destructive hover:bg-destructive/10 transition-colors"
+        >
           <LogOut className="h-5 w-5" />
           Sign Out
         </button>
@@ -97,14 +100,21 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/logout", { method: "POST" });
+    router.push("/admin/login");
+    router.refresh();
+  };
 
   return (
     <div className="min-h-screen bg-cream-100">
       {/* Desktop Sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-1 bg-white border-r border-cream-300">
-          <Sidebar />
+          <Sidebar onLogout={handleLogout} />
         </div>
       </div>
 
@@ -124,7 +134,7 @@ export default function AdminLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-64">
-              <Sidebar mobile />
+              <Sidebar mobile onLogout={handleLogout} />
             </SheetContent>
           </Sheet>
         </div>
