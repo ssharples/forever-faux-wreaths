@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { Menu, X, ShoppingBag, User, Leaf, Home, Store, Paintbrush, Images, Package, HelpCircle, Star, Mail, UserCircle, ChevronRight } from "lucide-react";
+import { Menu, X, ShoppingBag, User, Leaf, Home, Store, Paintbrush, Images, Package, HelpCircle, Star, Mail, UserCircle, ChevronRight, Heart, Snowflake, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -19,6 +19,18 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Shop", href: "/shop", icon: Store },
+  {
+    name: "Collections",
+    href: "/collections",
+    icon: Grid3X3,
+    children: [
+      { name: "Memorial Wreaths", href: "/collections/memorial-wreaths", icon: Heart },
+      { name: "Funeral Wreaths", href: "/collections/funeral-wreaths", icon: Heart },
+      { name: "Door Wreaths", href: "/collections/door-wreaths", icon: Home },
+      { name: "Christmas Wreaths", href: "/collections/christmas-wreaths", icon: Snowflake },
+      { name: "All Collections", href: "/collections", icon: Grid3X3 },
+    ],
+  },
   { name: "Bespoke", href: "/bespoke", icon: Paintbrush },
   { name: "Gallery", href: "/gallery", icon: Images },
   {

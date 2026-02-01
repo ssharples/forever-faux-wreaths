@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieConsent } from "@/components/cookie-consent";
 import { cormorantGaramond, montserrat, caveat } from "@/lib/fonts";
+import { generateLocalBusinessSchema } from "@/lib/schema";
 
 export const metadata: Metadata = {
   title: "Forever Faux Wreaths | Handcrafted Faux Florals",
@@ -57,8 +59,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const localBusinessSchema = generateLocalBusinessSchema();
+
   return (
     <html lang="en" className={`${cormorantGaramond.variable} ${montserrat.variable} ${caveat.variable}`}>
+      <head>
+        <Script
+          id="local-business-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+        />
+      </head>
       <body className="antialiased min-h-screen flex flex-col font-body">
         <ConvexClientProvider>
           {children}

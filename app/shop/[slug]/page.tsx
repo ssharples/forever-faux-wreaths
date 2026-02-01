@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { generateProductSchema } from "@/lib/schema";
 
 function StockBadge({ stock }: { stock: number }) {
   if (stock === 0) {
@@ -113,6 +114,40 @@ export default function ProductPage() {
 
   const isLoading = product === undefined;
   const notFound = product === null;
+
+  // Generate and inject product schema for SEO
+  useEffect(() => {
+    if (product) {
+      const schema = generateProductSchema({
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        imageUrls: product.imageUrls,
+        stock: product.stock,
+        slug: product.slug,
+      });
+
+      // Remove any existing product schema
+      const existingScript = document.getElementById("product-schema");
+      if (existingScript) {
+        existingScript.remove();
+      }
+
+      // Add new product schema
+      const script = document.createElement("script");
+      script.id = "product-schema";
+      script.type = "application/ld+json";
+      script.textContent = JSON.stringify(schema);
+      document.head.appendChild(script);
+
+      return () => {
+        const scriptToRemove = document.getElementById("product-schema");
+        if (scriptToRemove) {
+          scriptToRemove.remove();
+        }
+      };
+    }
+  }, [product]);
 
   return (
     <>
