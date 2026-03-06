@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 
 export const list = query({
   args: {
@@ -86,8 +86,9 @@ export const create = mutation({
     deliveryCost: v.number(),
     total: v.number(),
     notes: v.optional(v.string()),
-    paymentMethod: v.union(v.literal("paypal"), v.literal("sumup")),
+    paymentMethod: v.literal("stripe"),
     paymentId: v.string(),
+    stripeSessionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const orderNumber = generateOrderNumber();
@@ -108,6 +109,94 @@ export const create = mutation({
           status: newStock === 0 ? "sold-out" : product.status,
           updatedAt: Date.now(),
         });
+      }
+    }
+
+    return { orderId, orderNumber };
+  },
+});
+
+export const getByStripeSession = query({
+  args: { stripeSessionId: v.string() },
+  handler: async (ctx, args) => {
+    const orders = await ctx.db.query("orders").collect();
+    return orders.find((o) => o.stripeSessionId === args.stripeSessionId) ?? null;
+  },
+});
+
+export const createFromStripe = internalMutation({
+  args: {
+    stripeSessionId: v.string(),
+    customerName: v.string(),
+    customerEmail: v.string(),
+    shippingAddress: v.object({
+      line1: v.string(),
+      line2: v.optional(v.string()),
+      city: v.string(),
+      county: v.optional(v.string()),
+      postcode: v.string(),
+      country: v.string(),
+    }),
+    deliveryMethod: v.union(v.literal("standard"), v.literal("collection")),
+    items: v.array(
+      v.object({
+        productId: v.id("products"),
+        title: v.string(),
+        price: v.number(),
+        quantity: v.number(),
+        imageId: v.optional(v.id("_storage")),
+      })
+    ),
+    subtotal: v.number(),
+    deliveryCost: v.number(),
+    total: v.number(),
+    sessionId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Idempotency check - don't create duplicate orders
+    const existing = await ctx.db.query("orders").collect();
+    const dup = existing.find((o) => o.stripeSessionId === args.stripeSessionId);
+    if (dup) return { orderId: dup._id, orderNumber: dup.orderNumber };
+
+    const orderNumber = generateOrderNumber();
+    const orderId = await ctx.db.insert("orders", {
+      orderNumber,
+      customerName: args.customerName,
+      customerEmail: args.customerEmail,
+      shippingAddress: args.shippingAddress,
+      deliveryMethod: args.deliveryMethod,
+      items: args.items,
+      subtotal: args.subtotal,
+      deliveryCost: args.deliveryCost,
+      total: args.total,
+      status: "pending",
+      paymentMethod: "stripe",
+      paymentId: args.stripeSessionId,
+      stripeSessionId: args.stripeSessionId,
+      createdAt: Date.now(),
+    });
+
+    // Decrease stock for purchased items
+    for (const item of args.items) {
+      const product = await ctx.db.get(item.productId);
+      if (product) {
+        const newStock = Math.max(0, product.stock - item.quantity);
+        await ctx.db.patch(item.productId, {
+          stock: newStock,
+          status: newStock === 0 ? "sold-out" : product.status,
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    // Clear the guest cart if sessionId provided
+    if (args.sessionId) {
+      const cart = await ctx.db
+        .query("cart")
+        .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId!))
+        .first();
+      if (cart) {
+        await ctx.db.delete(cart._id);
       }
     }
 

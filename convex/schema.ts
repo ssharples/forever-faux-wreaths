@@ -77,8 +77,9 @@ export default defineSchema({
       v.literal("collected")
     ),
     trackingNumber: v.optional(v.string()),
-    paymentMethod: v.union(v.literal("paypal"), v.literal("sumup")),
+    paymentMethod: v.literal("stripe"),
     paymentId: v.string(),
+    stripeSessionId: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_orderNumber", ["orderNumber"])

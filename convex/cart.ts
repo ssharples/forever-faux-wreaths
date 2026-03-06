@@ -1,5 +1,20 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, type MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+
+async function getAvailableProductOrThrow(
+  ctx: MutationCtx,
+  productId: Id<"products">
+): Promise<Doc<"products">> {
+  const product = await ctx.db.get(productId);
+  if (!product) {
+    throw new Error("Product not found.");
+  }
+  if (product.status !== "active" || product.stock <= 0) {
+    throw new Error("This product is no longer available.");
+  }
+  return product;
+}
 
 export const get = query({
   args: {
@@ -84,6 +99,11 @@ export const addItem = mutation({
     quantity: v.number(),
   },
   handler: async (ctx, args) => {
+    if (args.quantity < 1) {
+      throw new Error("Quantity must be at least 1.");
+    }
+
+    const product = await getAvailableProductOrThrow(ctx, args.productId);
     let cart = null;
 
     if (args.userId) {
@@ -106,8 +126,15 @@ export const addItem = mutation({
       let newItems;
       if (existingItemIndex >= 0) {
         newItems = [...cart.items];
-        newItems[existingItemIndex].quantity += args.quantity;
+        const nextQuantity = newItems[existingItemIndex].quantity + args.quantity;
+        if (nextQuantity > product.stock) {
+          throw new Error(`Only ${product.stock} available.`);
+        }
+        newItems[existingItemIndex].quantity = nextQuantity;
       } else {
+        if (args.quantity > product.stock) {
+          throw new Error(`Only ${product.stock} available.`);
+        }
         newItems = [
           ...cart.items,
           { productId: args.productId, quantity: args.quantity },
@@ -139,6 +166,10 @@ export const updateItemQuantity = mutation({
     quantity: v.number(),
   },
   handler: async (ctx, args) => {
+    if (args.quantity < 1) {
+      throw new Error("Quantity must be at least 1.");
+    }
+
     let cart = null;
 
     if (args.userId) {
@@ -154,6 +185,11 @@ export const updateItemQuantity = mutation({
     }
 
     if (!cart) return;
+
+    const product = await getAvailableProductOrThrow(ctx, args.productId);
+    if (args.quantity > product.stock) {
+      throw new Error(`Only ${product.stock} available.`);
+    }
 
     const newItems = cart.items
       .map((item) =>
@@ -252,25 +288,48 @@ export const mergeGuestCart = mutation({
       const mergedItems = [...userCart.items];
 
       for (const guestItem of guestCart.items) {
+        const product = await ctx.db.get(guestItem.productId);
+        if (!product || product.status !== "active" || product.stock <= 0) {
+          continue;
+        }
+
         const existingIndex = mergedItems.findIndex(
           (item) => item.productId === guestItem.productId
         );
         if (existingIndex >= 0) {
-          mergedItems[existingIndex].quantity += guestItem.quantity;
+          mergedItems[existingIndex].quantity = Math.min(
+            product.stock,
+            mergedItems[existingIndex].quantity + guestItem.quantity
+          );
         } else {
-          mergedItems.push(guestItem);
+          mergedItems.push({
+            ...guestItem,
+            quantity: Math.min(product.stock, guestItem.quantity),
+          });
         }
       }
 
       await ctx.db.patch(userCart._id, {
-        items: mergedItems,
+        items: mergedItems.filter((item) => item.quantity > 0),
         updatedAt: Date.now(),
       });
     } else {
+      const availableItems = [];
+      for (const item of guestCart.items) {
+        const product = await ctx.db.get(item.productId);
+        if (!product || product.status !== "active" || product.stock <= 0) {
+          continue;
+        }
+        availableItems.push({
+          ...item,
+          quantity: Math.min(product.stock, item.quantity),
+        });
+      }
+
       await ctx.db.insert("cart", {
         userId: args.userId,
         sessionId: undefined,
-        items: guestCart.items,
+        items: availableItems.filter((item) => item.quantity > 0),
         updatedAt: Date.now(),
       });
     }

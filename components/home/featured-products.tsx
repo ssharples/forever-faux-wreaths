@@ -40,7 +40,7 @@ export function FeaturedProducts() {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
       {featuredProducts.map((product) => (
         <Link key={product._id} href={`/shop/${product.slug}`}>
-          <Card className="group overflow-hidden border-cream-300 hover:border-sage-300 transition-colors bg-white !p-0 !gap-0">
+            <Card className="group overflow-hidden border-cream-300 hover:border-sage-300 transition-colors bg-white !p-0 !gap-0">
             <div className="aspect-square relative bg-cream-50 overflow-hidden">
               {product.imageUrls[0] ? (
                 <Image
@@ -60,15 +60,28 @@ export function FeaturedProducts() {
                   Featured
                 </Badge>
               )}
+              {product.stock === 0 && (
+                <div className="absolute inset-0 bg-cream-100/80 flex items-center justify-center z-10">
+                  <span className="font-medium text-charcoal-500">Sold Out</span>
+                </div>
+              )}
               <div className="absolute inset-0 bg-charcoal-900/0 group-hover:bg-charcoal-900/5 transition-colors" />
             </div>
-            <CardContent className="p-3 sm:p-4">
+            <CardContent className="p-4">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-charcoal-400 mb-1">
+                {product.categoryName ?? product.style}
+              </p>
               <h3 className="font-medium text-charcoal-600 group-hover:text-sage-600 transition-colors line-clamp-2 text-sm sm:text-base">
                 {product.title}
               </h3>
-              <p className="mt-1 font-display text-base sm:text-lg text-charcoal-700">
-                £{product.price}
-              </p>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <p className="font-display text-lg text-charcoal-700">
+                  £{product.price}
+                </p>
+                <p className="text-xs text-charcoal-500">
+                  {product.stock === 1 ? "1 available" : `${product.stock} available`}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </Link>

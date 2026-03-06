@@ -12,11 +12,13 @@ import type * as bespokeEnquiries from "../bespokeEnquiries.js";
 import type * as cart from "../cart.js";
 import type * as categories from "../categories.js";
 import type * as galleryImages from "../galleryImages.js";
+import type * as http from "../http.js";
 import type * as newsletterSubscribers from "../newsletterSubscribers.js";
 import type * as orders from "../orders.js";
 import type * as products from "../products.js";
 import type * as reviews from "../reviews.js";
 import type * as siteSettings from "../siteSettings.js";
+import type * as stripe from "../stripe.js";
 import type * as users from "../users.js";
 
 import type {
@@ -30,11 +32,13 @@ declare const fullApi: ApiFromModules<{
   cart: typeof cart;
   categories: typeof categories;
   galleryImages: typeof galleryImages;
+  http: typeof http;
   newsletterSubscribers: typeof newsletterSubscribers;
   orders: typeof orders;
   products: typeof products;
   reviews: typeof reviews;
   siteSettings: typeof siteSettings;
+  stripe: typeof stripe;
   users: typeof users;
 }>;
 

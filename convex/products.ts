@@ -1,5 +1,38 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import {
+  query,
+  mutation,
+  type QueryCtx,
+} from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+
+function normalizeStatus(
+  stock: number,
+  status: "active" | "draft" | "sold-out"
+) {
+  return stock === 0 ? "sold-out" : status;
+}
+
+async function enrichProduct<
+  T extends {
+    images: Doc<"products">["images"];
+    categoryId: Doc<"products">["categoryId"];
+  },
+>(ctx: QueryCtx, product: T) {
+  const imageUrls = await Promise.all(
+    product.images.map(async (imageId) => {
+      const url = await ctx.storage.getUrl(imageId);
+      return url;
+    })
+  );
+  const category = await ctx.db.get(product.categoryId);
+
+  return {
+    ...product,
+    categoryName: category?.name ?? null,
+    imageUrls: imageUrls.filter((url): url is string => url !== null),
+  };
+}
 
 export const list = query({
   args: {
@@ -28,18 +61,7 @@ export const list = query({
 
     // Get image URLs for each product
     const productsWithImages = await Promise.all(
-      filtered.map(async (product) => {
-        const imageUrls = await Promise.all(
-          product.images.map(async (imageId) => {
-            const url = await ctx.storage.getUrl(imageId);
-            return url;
-          })
-        );
-        return {
-          ...product,
-          imageUrls: imageUrls.filter((url): url is string => url !== null),
-        };
-      })
+      filtered.map((product) => enrichProduct(ctx, product))
     );
 
     return productsWithImages;
@@ -56,17 +78,7 @@ export const getBySlug = query({
 
     if (!product) return null;
 
-    const imageUrls = await Promise.all(
-      product.images.map(async (imageId) => {
-        const url = await ctx.storage.getUrl(imageId);
-        return url;
-      })
-    );
-
-    return {
-      ...product,
-      imageUrls: imageUrls.filter((url): url is string => url !== null),
-    };
+    return await enrichProduct(ctx, product);
   },
 });
 
@@ -80,18 +92,7 @@ export const getFeatured = query({
       .take(8);
 
     const productsWithImages = await Promise.all(
-      products.map(async (product) => {
-        const imageUrls = await Promise.all(
-          product.images.map(async (imageId) => {
-            const url = await ctx.storage.getUrl(imageId);
-            return url;
-          })
-        );
-        return {
-          ...product,
-          imageUrls: imageUrls.filter((url): url is string => url !== null),
-        };
-      })
+      products.map((product) => enrichProduct(ctx, product))
     );
 
     return productsWithImages;
@@ -104,17 +105,7 @@ export const getById = query({
     const product = await ctx.db.get(args.id);
     if (!product) return null;
 
-    const imageUrls = await Promise.all(
-      product.images.map(async (imageId) => {
-        const url = await ctx.storage.getUrl(imageId);
-        return url;
-      })
-    );
-
-    return {
-      ...product,
-      imageUrls: imageUrls.filter((url): url is string => url !== null),
-    };
+    return await enrichProduct(ctx, product);
   },
 });
 
@@ -149,6 +140,7 @@ export const create = mutation({
     const now = Date.now();
     const productId = await ctx.db.insert("products", {
       ...args,
+      status: normalizeStatus(args.stock, args.status),
       createdAt: now,
       updatedAt: now,
     });
@@ -186,8 +178,17 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error("Product not found");
+    }
+
+    const nextStock = updates.stock ?? existing.stock;
+    const nextStatus = normalizeStatus(nextStock, updates.status ?? existing.status);
+
     await ctx.db.patch(id, {
       ...updates,
+      status: nextStatus,
       updatedAt: Date.now(),
     });
   },

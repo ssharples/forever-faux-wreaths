@@ -1,10 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import {
   Search,
   MoreHorizontal,
@@ -15,9 +11,7 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
-  Sparkles,
   Loader2,
-  Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,122 +29,67 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { timeAgo } from "@/lib/format-date";
 import { toast } from "sonner";
+import Image from "next/image";
 
-type EnquiryStatus = "new" | "in-discussion" | "quoted" | "accepted" | "in-progress" | "complete" | "cancelled";
-
-const statusConfig: Record<EnquiryStatus, { color: string; label: string }> = {
-  "new": { color: "bg-sage-100 text-sage-700", label: "New" },
+const statusConfig: Record<string, { color: string; label: string }> = {
+  "new": { color: "bg-blue-100 text-blue-700", label: "New" },
   "in-discussion": { color: "bg-amber-100 text-amber-700", label: "In Discussion" },
-  "quoted": { color: "bg-gold-400/20 text-gold-500", label: "Quoted" },
-  "accepted": { color: "bg-sage-200 text-sage-700", label: "Accepted" },
-  "in-progress": { color: "bg-amber-200 text-amber-700", label: "In Progress" },
-  "complete": { color: "bg-success/20 text-success", label: "Complete" },
-  "cancelled": { color: "bg-error/20 text-error", label: "Cancelled" },
+  "quoted": { color: "bg-purple-100 text-purple-700", label: "Quoted" },
+  "accepted": { color: "bg-sage-100 text-sage-700", label: "Accepted" },
+  "in-progress": { color: "bg-amber-100 text-amber-700", label: "In Progress" },
+  "complete": { color: "bg-green-100 text-green-700", label: "Complete" },
+  "cancelled": { color: "bg-red-100 text-red-700", label: "Cancelled" },
 };
 
-const nextStatus: Partial<Record<EnquiryStatus, EnquiryStatus>> = {
-  "new": "in-discussion",
-  "in-discussion": "quoted",
-  "quoted": "accepted",
-  "accepted": "in-progress",
-  "in-progress": "complete",
-};
+const statusTabs = ["all", "new", "in-discussion", "quoted", "accepted", "in-progress", "complete"];
 
 export default function EnquiriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | EnquiryStatus>("all");
-  const [selectedEnquiry, setSelectedEnquiry] = useState<Id<"bespokeEnquiries"> | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [selectedEnquiry, setSelectedEnquiry] = useState<any | null>(null);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
-  const [quoteAmount, setQuoteAmount] = useState("");
-  const [quoteTimeline, setQuoteTimeline] = useState("");
-  const [quoteMessage, setQuoteMessage] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
 
-  // Fetch enquiries from Convex
-  const enquiries = useQuery(
-    api.bespokeEnquiries.list,
-    statusFilter === "all" ? {} : { status: statusFilter }
-  );
-  const updateStatus = useMutation(api.bespokeEnquiries.updateStatus);
+  const allEnquiries = useQuery(api.bespokeEnquiries.list, {});
+  const updateEnquiryStatus = useMutation(api.bespokeEnquiries.updateStatus);
 
-  const isLoading = enquiries === undefined;
+  const enquiries = allEnquiries ?? [];
 
-  // Get selected enquiry data
-  const selectedEnquiryData = enquiries?.find((e) => e._id === selectedEnquiry);
-
-  // Filter enquiries by search query
-  const filteredEnquiries = enquiries?.filter((enquiry) => {
+  const filteredEnquiries = enquiries.filter((enquiry) => {
     const matchesSearch =
       enquiry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      enquiry.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      enquiry.arrangementType.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  }) ?? [];
+      enquiry.arrangementType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      enquiry.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || enquiry.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusCounts = () => {
     const counts: Record<string, number> = {
-      all: enquiries?.length ?? 0,
-      new: 0,
+      all: enquiries.length,
+      "new": 0,
       "in-discussion": 0,
-      quoted: 0,
-      accepted: 0,
+      "quoted": 0,
+      "accepted": 0,
       "in-progress": 0,
-      complete: 0,
-      cancelled: 0,
+      "complete": 0,
+      "cancelled": 0,
     };
-    enquiries?.forEach((enquiry) => {
+    enquiries.forEach((enquiry) => {
       counts[enquiry.status]++;
     });
     return counts;
   };
 
   const statusCounts = getStatusCounts();
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const handleStatusUpdate = async (id: Id<"bespokeEnquiries">, newStatus: EnquiryStatus, notes?: string) => {
-    setIsUpdating(true);
-    try {
-      await updateStatus({
-        id,
-        status: newStatus,
-        ...(notes ? { internalNotes: notes } : {}),
-      });
-      toast.success(`Enquiry updated to ${statusConfig[newStatus].label}`);
-    } catch (error) {
-      toast.error("Failed to update enquiry");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleSendQuote = async () => {
-    if (!selectedEnquiry) return;
-    
-    // For now, just update status to quoted and save notes
-    const quoteNotes = `Quote: £${quoteAmount}, Timeline: ${quoteTimeline}\n\nMessage: ${quoteMessage}`;
-    await handleStatusUpdate(selectedEnquiry, "quoted", quoteNotes);
-    
-    setQuoteDialogOpen(false);
-    setSelectedEnquiry(null);
-    setQuoteAmount("");
-    setQuoteTimeline("");
-    setQuoteMessage("");
-  };
 
   return (
     <div className="p-6 lg:p-8">
@@ -164,7 +103,7 @@ export default function EnquiriesPage() {
 
       {/* Status Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {(["all", "new", "in-discussion", "quoted", "accepted", "in-progress", "complete"] as const).map((status) => (
+        {statusTabs.map((status) => (
           <Button
             key={status}
             variant={statusFilter === status ? "default" : "outline"}
@@ -176,9 +115,9 @@ export default function EnquiriesPage() {
                 : "border-cream-300"
             }
           >
-            {status === "all" ? "All" : statusConfig[status as EnquiryStatus].label}
+            {status === "all" ? "All" : statusConfig[status]?.label ?? status}
             <span className="ml-1.5 text-xs opacity-70">
-              ({statusCounts[status]})
+              ({statusCounts[status] ?? 0})
             </span>
           </Button>
         ))}
@@ -197,188 +136,207 @@ export default function EnquiriesPage() {
         </div>
       </Card>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="p-12 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-sage-400 mx-auto mb-4" />
-          <p className="text-charcoal-500">Loading enquiries...</p>
-        </div>
-      )}
-
       {/* Enquiries List */}
-      {!isLoading && (
-        <div className="space-y-4">
-          {filteredEnquiries.map((enquiry) => (
-            <Card
-              key={enquiry._id}
-              className="p-6 border-cream-300 bg-white hover:shadow-soft-md transition-shadow"
-            >
-              <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                {/* Main Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="font-medium text-charcoal-700">
-                          {enquiry.name}
-                        </h3>
-                        <Badge className={statusConfig[enquiry.status].color}>
-                          {statusConfig[enquiry.status].label}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-charcoal-500">{enquiry.email}</p>
-                      {enquiry.phone && (
-                        <p className="text-sm text-charcoal-400">{enquiry.phone}</p>
-                      )}
+      {allEnquiries === undefined ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-sage-400" />
+        </div>
+      ) : (
+      <div className="space-y-4">
+        {filteredEnquiries.map((enquiry) => (
+          <Card
+            key={enquiry._id}
+            className="p-6 border-cream-300 bg-white hover:shadow-soft-md transition-shadow"
+          >
+            <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+              {/* Main Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="font-medium text-charcoal-700">
+                        {enquiry.name}
+                      </h3>
+                      <Badge className={statusConfig[enquiry.status]?.color ?? "bg-gray-100 text-gray-700"}>
+                        {statusConfig[enquiry.status]?.label ?? enquiry.status}
+                      </Badge>
                     </div>
+                    <p className="text-sm text-charcoal-500">{enquiry.email}</p>
                   </div>
+                </div>
 
-                  <div className="grid sm:grid-cols-3 gap-3 mb-4 text-sm">
-                    <div>
-                      <span className="text-charcoal-400">Type:</span>{" "}
-                      <span className="text-charcoal-600">{enquiry.arrangementType}</span>
-                    </div>
-                    <div>
-                      <span className="text-charcoal-400">Size:</span>{" "}
-                      <span className="text-charcoal-600">
-                        {enquiry.size === "custom" ? enquiry.customSize : enquiry.size}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-charcoal-400">Occasion:</span>{" "}
-                      <span className="text-charcoal-600">{enquiry.occasion}</span>
-                    </div>
+                <div className="grid sm:grid-cols-3 gap-3 mb-4 text-sm">
+                  <div>
+                    <span className="text-charcoal-400">Type:</span>{" "}
+                    <span className="text-charcoal-600">{enquiry.arrangementType}</span>
                   </div>
+                  <div>
+                    <span className="text-charcoal-400">Size:</span>{" "}
+                    <span className="text-charcoal-600">{enquiry.size}</span>
+                  </div>
+                  <div>
+                    <span className="text-charcoal-400">Budget:</span>{" "}
+                    <span className="text-charcoal-600">{enquiry.estimatedPrice ?? "Not specified"}</span>
+                  </div>
+                </div>
 
-                  <div className="mb-3">
-                    <p className="text-sm text-charcoal-400 mb-1">Colour Theme:</p>
-                    <p className="text-sm text-charcoal-600">
-                      {enquiry.colourTheme === "custom" ? enquiry.customColour : enquiry.colourTheme}
-                      {enquiry.ribbon && enquiry.ribbonColour && ` • Ribbon: ${enquiry.ribbonColour}`}
+                <div className="mb-3">
+                  <p className="text-sm text-charcoal-400 mb-1">Colors:</p>
+                  <p className="text-sm text-charcoal-600">{enquiry.colourTheme}{enquiry.customColour ? ` - ${enquiry.customColour}` : ""}</p>
+                </div>
+
+                {enquiry.notes && (
+                  <div>
+                    <p className="text-sm text-charcoal-400 mb-1">Message:</p>
+                    <p className="text-sm text-charcoal-600 line-clamp-2">
+                      {enquiry.notes}
                     </p>
                   </div>
+                )}
 
-                  {enquiry.notes && (
-                    <div className="mb-3">
-                      <p className="text-sm text-charcoal-400 mb-1">Notes:</p>
-                      <p className="text-sm text-charcoal-600 line-clamp-2">
-                        {enquiry.notes}
-                      </p>
-                    </div>
-                  )}
-
-                  {enquiry.imageUrls && enquiry.imageUrls.length > 0 && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-sage-500" />
-                      <span className="text-sm text-sage-600">
-                        {enquiry.imageUrls.length} inspiration image(s) attached
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex lg:flex-col gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 lg:flex-none"
-                    onClick={() => setSelectedEnquiry(enquiry._id)}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View
-                  </Button>
-                  {enquiry.status === "new" && (
-                    <Button
-                      size="sm"
-                      className="flex-1 lg:flex-none bg-sage-400 hover:bg-sage-500 text-white"
-                      onClick={() => handleStatusUpdate(enquiry._id, "in-discussion")}
-                    >
-                      Start Discussion
-                    </Button>
-                  )}
-                  {enquiry.status === "in-discussion" && (
-                    <Button
-                      size="sm"
-                      className="flex-1 lg:flex-none bg-sage-400 hover:bg-sage-500 text-white"
-                      onClick={() => {
-                        setSelectedEnquiry(enquiry._id);
-                        setQuoteDialogOpen(true);
-                      }}
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      Quote
-                    </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSelectedEnquiry(enquiry._id)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {nextStatus[enquiry.status] && (
-                        <DropdownMenuItem
-                          onClick={() => handleStatusUpdate(enquiry._id, nextStatus[enquiry.status]!)}
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Mark as {statusConfig[nextStatus[enquiry.status]!].label}
-                        </DropdownMenuItem>
-                      )}
-                      {enquiry.status !== "complete" && enquiry.status !== "cancelled" && (
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleStatusUpdate(enquiry._id, "cancelled")}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Cancel
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-cream-200 flex items-center justify-between text-xs text-charcoal-400">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Received: {formatDate(enquiry.createdAt)}
-                </span>
-                {enquiry.estimatedPrice && (
-                  <span>Estimated: {enquiry.estimatedPrice}</span>
+                {enquiry.imageUrls && enquiry.imageUrls.length > 0 && (
+                  <div className="mt-3 flex gap-2">
+                    {enquiry.imageUrls.map((url: string, i: number) => (
+                      <div key={i} className="w-16 h-16 rounded-md overflow-hidden bg-cream-200 relative">
+                        <Image src={url} alt="Inspiration" fill className="object-cover" sizes="64px" />
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            </Card>
-          ))}
 
-          {filteredEnquiries.length === 0 && (
-            <Card className="p-12 border-cream-300 bg-white text-center">
-              <MessageSquare className="h-12 w-12 text-sage-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-charcoal-700 mb-2">
-                No enquiries found
-              </h3>
-              <p className="text-charcoal-500">
-                {searchQuery || statusFilter !== "all"
-                  ? "Try adjusting your search or filters"
-                  : "Bespoke enquiries will appear here"}
-              </p>
-            </Card>
-          )}
-        </div>
+              {/* Actions */}
+              <div className="flex lg:flex-col gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 lg:flex-none"
+                  onClick={() => setSelectedEnquiry(enquiry)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View
+                </Button>
+                {enquiry.status === "new" && (
+                  <Button
+                    size="sm"
+                    className="flex-1 lg:flex-none bg-sage-400 hover:bg-sage-500 text-white"
+                    onClick={() => {
+                      updateEnquiryStatus({ id: enquiry._id, status: "in-discussion" });
+                      toast.success("Status updated to In Discussion");
+                    }}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Respond
+                  </Button>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Send Message
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Create Order
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {enquiry.status === "new" && (
+                      <DropdownMenuItem onClick={() => {
+                        updateEnquiryStatus({ id: enquiry._id, status: "in-discussion" });
+                        toast.success("Status updated");
+                      }}>
+                        <Clock className="h-4 w-4 mr-2" />
+                        Mark In Discussion
+                      </DropdownMenuItem>
+                    )}
+                    {enquiry.status === "in-discussion" && (
+                      <DropdownMenuItem onClick={() => {
+                        updateEnquiryStatus({ id: enquiry._id, status: "quoted" });
+                        toast.success("Status updated");
+                      }}>
+                        <Clock className="h-4 w-4 mr-2" />
+                        Mark Quoted
+                      </DropdownMenuItem>
+                    )}
+                    {enquiry.status === "quoted" && (
+                      <DropdownMenuItem onClick={() => {
+                        updateEnquiryStatus({ id: enquiry._id, status: "accepted" });
+                        toast.success("Status updated");
+                      }}>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Mark Accepted
+                      </DropdownMenuItem>
+                    )}
+                    {enquiry.status === "accepted" && (
+                      <DropdownMenuItem onClick={() => {
+                        updateEnquiryStatus({ id: enquiry._id, status: "in-progress" });
+                        toast.success("Status updated");
+                      }}>
+                        <Clock className="h-4 w-4 mr-2" />
+                        Mark In Progress
+                      </DropdownMenuItem>
+                    )}
+                    {enquiry.status === "in-progress" && (
+                      <DropdownMenuItem onClick={() => {
+                        updateEnquiryStatus({ id: enquiry._id, status: "complete" });
+                        toast.success("Status updated");
+                      }}>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Mark Complete
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => {
+                        updateEnquiryStatus({ id: enquiry._id, status: "cancelled" });
+                        toast.success("Enquiry cancelled");
+                      }}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Cancel
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-cream-200 flex items-center justify-between text-xs text-charcoal-400">
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Received: {timeAgo(enquiry.createdAt)}
+              </span>
+            </div>
+          </Card>
+        ))}
+
+        {filteredEnquiries.length === 0 && (
+          <Card className="p-12 border-cream-300 bg-white text-center">
+            <MessageSquare className="h-12 w-12 text-sage-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-charcoal-700 mb-2">
+              No enquiries found
+            </h3>
+            <p className="text-charcoal-500">
+              {searchQuery || statusFilter !== "all"
+                ? "Try adjusting your search or filters"
+                : "Bespoke enquiries will appear here"}
+            </p>
+          </Card>
+        )}
+      </div>
       )}
 
       {/* View Enquiry Dialog */}
       <Dialog
         open={!!selectedEnquiry && !quoteDialogOpen}
-        onOpenChange={(open) => !open && setSelectedEnquiry(null)}
+        onOpenChange={() => setSelectedEnquiry(null)}
       >
-        {selectedEnquiryData && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        {selectedEnquiry && (
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Enquiry Details</DialogTitle>
             </DialogHeader>
@@ -387,100 +345,79 @@ export default function EnquiriesPage() {
                 <div>
                   <p className="text-sm text-charcoal-400">Customer</p>
                   <p className="font-medium text-charcoal-700">
-                    {selectedEnquiryData.name}
+                    {selectedEnquiry.name}
                   </p>
                   <p className="text-sm text-charcoal-500">
-                    {selectedEnquiryData.email}
+                    {selectedEnquiry.email}
                   </p>
-                  {selectedEnquiryData.phone && (
-                    <p className="text-sm text-charcoal-400">
-                      {selectedEnquiryData.phone}
+                  {selectedEnquiry.phone && (
+                    <p className="text-sm text-charcoal-500">
+                      {selectedEnquiry.phone}
                     </p>
                   )}
                 </div>
                 <div>
                   <p className="text-sm text-charcoal-400">Status</p>
-                  <Badge className={statusConfig[selectedEnquiryData.status].color}>
-                    {statusConfig[selectedEnquiryData.status].label}
+                  <Badge className={statusConfig[selectedEnquiry.status]?.color ?? "bg-gray-100 text-gray-700"}>
+                    {statusConfig[selectedEnquiry.status]?.label ?? selectedEnquiry.status}
                   </Badge>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <p className="text-sm text-charcoal-400">Arrangement Type</p>
-                  <p className="text-charcoal-700">{selectedEnquiryData.arrangementType}</p>
+                  <p className="text-sm text-charcoal-400">Type</p>
+                  <p className="text-charcoal-700">{selectedEnquiry.arrangementType}</p>
                 </div>
                 <div>
                   <p className="text-sm text-charcoal-400">Size</p>
-                  <p className="text-charcoal-700">
-                    {selectedEnquiryData.size === "custom" 
-                      ? selectedEnquiryData.customSize 
-                      : selectedEnquiryData.size}
-                  </p>
+                  <p className="text-charcoal-700">{selectedEnquiry.size}{selectedEnquiry.customSize ? ` (${selectedEnquiry.customSize})` : ""}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-charcoal-400">Budget</p>
+                  <p className="text-charcoal-700">{selectedEnquiry.estimatedPrice ?? "Not specified"}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-charcoal-400">Wreath Base</p>
-                  <p className="text-charcoal-700">{selectedEnquiryData.wreathBase}</p>
+                  <p className="text-sm text-charcoal-400 mb-1">Colors</p>
+                  <p className="text-charcoal-700">{selectedEnquiry.colourTheme}{selectedEnquiry.customColour ? ` - ${selectedEnquiry.customColour}` : ""}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-charcoal-400">Occasion</p>
-                  <p className="text-charcoal-700">{selectedEnquiryData.occasion}</p>
+                  <p className="text-sm text-charcoal-400 mb-1">Occasion</p>
+                  <p className="text-charcoal-700">{selectedEnquiry.occasion}</p>
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm text-charcoal-400 mb-1">Colour Theme</p>
-                <p className="text-charcoal-700">
-                  {selectedEnquiryData.colourTheme === "custom" 
-                    ? selectedEnquiryData.customColour 
-                    : selectedEnquiryData.colourTheme}
-                </p>
-              </div>
-
-              {selectedEnquiryData.ribbon && (
+              {selectedEnquiry.ribbon && (
                 <div>
                   <p className="text-sm text-charcoal-400 mb-1">Ribbon</p>
-                  <p className="text-charcoal-700">
-                    Yes - {selectedEnquiryData.ribbonColour}
-                  </p>
+                  <p className="text-charcoal-700">Yes{selectedEnquiry.ribbonColour ? ` - ${selectedEnquiry.ribbonColour}` : ""}</p>
                 </div>
               )}
 
-              {selectedEnquiryData.notes && (
+              <div>
+                <p className="text-sm text-charcoal-400 mb-1">Wreath Base</p>
+                <p className="text-charcoal-700">{selectedEnquiry.wreathBase}</p>
+              </div>
+
+              {selectedEnquiry.notes && (
                 <div>
-                  <p className="text-sm text-charcoal-400 mb-1">Customer Notes</p>
+                  <p className="text-sm text-charcoal-400 mb-1">Notes</p>
                   <p className="text-charcoal-700 whitespace-pre-wrap">
-                    {selectedEnquiryData.notes}
+                    {selectedEnquiry.notes}
                   </p>
                 </div>
               )}
 
-              {selectedEnquiryData.internalNotes && (
-                <div className="bg-cream-50 p-4 rounded-lg">
-                  <p className="text-sm text-charcoal-400 mb-1">Internal Notes</p>
-                  <p className="text-charcoal-700 whitespace-pre-wrap">
-                    {selectedEnquiryData.internalNotes}
-                  </p>
-                </div>
-              )}
-
-              {selectedEnquiryData.imageUrls && selectedEnquiryData.imageUrls.length > 0 && (
+              {selectedEnquiry.imageUrls && selectedEnquiry.imageUrls.length > 0 && (
                 <div>
                   <p className="text-sm text-charcoal-400 mb-2">Inspiration Images</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {selectedEnquiryData.imageUrls.map((url, index) => (
-                      <div key={index} className="aspect-square rounded-lg overflow-hidden">
-                        <Image
-                          src={url}
-                          alt={`Inspiration ${index + 1}`}
-                          width={200}
-                          height={200}
-                          className="w-full h-full object-cover"
-                        />
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedEnquiry.imageUrls.map((url: string, i: number) => (
+                      <div key={i} className="w-24 h-24 rounded-md overflow-hidden bg-cream-200 relative">
+                        <Image src={url} alt="Inspiration" fill className="object-cover" sizes="96px" />
                       </div>
                     ))}
                   </div>
@@ -488,27 +425,22 @@ export default function EnquiriesPage() {
               )}
 
               <div className="flex gap-2 pt-4">
-                {selectedEnquiryData.status === "in-discussion" && (
+                {selectedEnquiry.status === "new" && (
                   <Button
                     className="bg-sage-400 hover:bg-sage-500 text-white"
-                    onClick={() => setQuoteDialogOpen(true)}
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Quote
-                  </Button>
-                )}
-                {nextStatus[selectedEnquiryData.status] && (
-                  <Button
-                    variant="outline"
                     onClick={() => {
-                      handleStatusUpdate(selectedEnquiryData._id, nextStatus[selectedEnquiryData.status]!);
-                      setSelectedEnquiry(null);
+                      updateEnquiryStatus({ id: selectedEnquiry._id, status: "in-discussion" });
+                      toast.success("Status updated to In Discussion");
                     }}
                   >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Mark as {statusConfig[nextStatus[selectedEnquiryData.status]!].label}
+                    <Send className="h-4 w-4 mr-2" />
+                    Start Discussion
                   </Button>
                 )}
+                <Button variant="outline">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Send Message
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -520,67 +452,34 @@ export default function EnquiriesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Send Quote</DialogTitle>
-            <DialogDescription>
-              Provide a quote for this bespoke enquiry.
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="quoteAmount">Quote Amount (£)</Label>
-              <Input 
-                id="quoteAmount"
-                type="number" 
-                step="0.01"
-                value={quoteAmount}
-                onChange={(e) => setQuoteAmount(e.target.value)}
-                placeholder="75.00" 
-                className="mt-1" 
-              />
+              <Label>Quote Amount (£)</Label>
+              <Input type="number" placeholder="75.00" className="mt-1" />
             </div>
             <div>
-              <Label htmlFor="quoteTimeline">Estimated Timeline</Label>
-              <Input 
-                id="quoteTimeline"
-                value={quoteTimeline}
-                onChange={(e) => setQuoteTimeline(e.target.value)}
-                placeholder="1-2 weeks" 
-                className="mt-1" 
-              />
+              <Label>Estimated Timeline</Label>
+              <Input placeholder="1-2 weeks" className="mt-1" />
             </div>
             <div>
-              <Label htmlFor="quoteMessage">Message</Label>
+              <Label>Message</Label>
               <Textarea
-                id="quoteMessage"
-                value={quoteMessage}
-                onChange={(e) => setQuoteMessage(e.target.value)}
                 placeholder="Thank you for your enquiry! I'd love to create this for you..."
                 rows={4}
                 className="mt-1"
               />
             </div>
+            <div className="flex gap-2 pt-2">
+              <Button className="bg-sage-400 hover:bg-sage-500 text-white">
+                <Send className="h-4 w-4 mr-2" />
+                Send Quote
+              </Button>
+              <Button variant="outline" onClick={() => setQuoteDialogOpen(false)}>
+                Cancel
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setQuoteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSendQuote}
-              disabled={isUpdating || !quoteAmount}
-              className="bg-sage-400 hover:bg-sage-500 text-white"
-            >
-              {isUpdating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Quote
-                </>
-              )}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

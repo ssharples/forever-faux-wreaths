@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useSessionId } from "@/hooks/use-session-id";
+import { useCartSession } from "@/lib/cart-session";
 import {
   ArrowLeft,
   Heart,
@@ -24,7 +24,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { generateProductSchema } from "@/lib/schema";
 
 function StockBadge({ stock }: { stock: number }) {
   if (stock === 0) {
@@ -43,7 +42,7 @@ function StockBadge({ stock }: { stock: number }) {
   }
   return (
     <Badge variant="secondary" className="bg-sage-100 text-sage-700">
-      In Stock
+      {stock} available
     </Badge>
   );
 }
@@ -71,8 +70,9 @@ export default function ProductPage() {
 
   // Fetch product from Convex
   const product = useQuery(api.products.getBySlug, { slug });
-  const sessionId = useSessionId();
-  const addToCartMutation = useMutation(api.cart.addItem);
+
+  const sessionId = useCartSession();
+  const addToCart = useMutation(api.cart.addItem);
 
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -80,10 +80,9 @@ export default function ProductPage() {
 
   const handleAddToCart = async () => {
     if (!product || product.stock === 0 || !sessionId) return;
-
     setIsAddingToCart(true);
     try {
-      await addToCartMutation({
+      await addToCart({
         sessionId,
         productId: product._id,
         quantity,
@@ -91,11 +90,11 @@ export default function ProductPage() {
       toast.success(`${product.title} added to cart`, {
         description: `Quantity: ${quantity}`,
       });
-    } catch {
-      toast.error("Failed to add to cart");
-    } finally {
-      setIsAddingToCart(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to add to cart";
+      toast.error(message);
     }
+    setIsAddingToCart(false);
   };
 
   const nextImage = () => {
@@ -115,50 +114,16 @@ export default function ProductPage() {
   const isLoading = product === undefined;
   const notFound = product === null;
 
-  // Generate and inject product schema for SEO
-  useEffect(() => {
-    if (product) {
-      const schema = generateProductSchema({
-        title: product.title,
-        description: product.description,
-        price: product.price,
-        imageUrls: product.imageUrls,
-        stock: product.stock,
-        slug: product.slug,
-      });
-
-      // Remove any existing product schema
-      const existingScript = document.getElementById("product-schema");
-      if (existingScript) {
-        existingScript.remove();
-      }
-
-      // Add new product schema
-      const script = document.createElement("script");
-      script.id = "product-schema";
-      script.type = "application/ld+json";
-      script.textContent = JSON.stringify(schema);
-      document.head.appendChild(script);
-
-      return () => {
-        const scriptToRemove = document.getElementById("product-schema");
-        if (scriptToRemove) {
-          scriptToRemove.remove();
-        }
-      };
-    }
-  }, [product]);
-
   return (
     <>
       <Header />
 
       <main className="flex-1 bg-cream-100">
         {/* Breadcrumb */}
-        <div className="container-wide py-2 md:py-4">
+        <div className="container-wide py-4">
           <Link
             href="/shop"
-            className="inline-flex items-center min-h-[44px] md:min-h-0 px-1 -mx-1 text-sm text-charcoal-500 hover:text-sage-600 transition-colors"
+            className="inline-flex items-center text-sm text-charcoal-500 hover:text-sage-600 transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Shop
@@ -205,15 +170,13 @@ export default function ProductPage() {
                     <>
                       <button
                         onClick={prevImage}
-                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 h-11 w-11 md:h-10 md:w-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors touch-manipulation"
-                        aria-label="Previous image"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors"
                       >
                         <ChevronLeft className="h-5 w-5 text-charcoal-600" />
                       </button>
                       <button
                         onClick={nextImage}
-                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 h-11 w-11 md:h-10 md:w-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors touch-manipulation"
-                        aria-label="Next image"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors"
                       >
                         <ChevronRight className="h-5 w-5 text-charcoal-600" />
                       </button>
@@ -251,9 +214,16 @@ export default function ProductPage() {
               <div>
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
-                    <Badge variant="secondary" className="mb-3 bg-sage-100 text-sage-700 capitalize">
-                      {product.style}
-                    </Badge>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <Badge variant="secondary" className="bg-sage-100 text-sage-700 capitalize">
+                        {product.style}
+                      </Badge>
+                      {product.categoryName && (
+                        <Badge variant="secondary" className="bg-cream-200 text-charcoal-500">
+                          {product.categoryName}
+                        </Badge>
+                      )}
+                    </div>
                     <h1 className="text-3xl lg:text-4xl">{product.title}</h1>
                   </div>
                   <Button
@@ -271,6 +241,14 @@ export default function ProductPage() {
                   </p>
                   <StockBadge stock={product.stock} />
                 </div>
+
+                <p className="text-sm text-charcoal-500 mb-6">
+                  {product.stock === 0
+                    ? "Currently unavailable"
+                    : product.stock === 1
+                      ? "1 wreath available"
+                      : `${product.stock} wreaths available`}
+                </p>
 
                 <p className="text-charcoal-500 leading-relaxed mb-8">
                   {product.description}
@@ -299,8 +277,7 @@ export default function ProductPage() {
                       <button
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         disabled={quantity <= 1}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-100 disabled:opacity-50 transition-colors touch-manipulation"
-                        aria-label="Decrease quantity"
+                        className="p-3 text-charcoal-500 hover:text-charcoal-700 disabled:opacity-50"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
@@ -312,8 +289,7 @@ export default function ProductPage() {
                           setQuantity(Math.min(product.stock, quantity + 1))
                         }
                         disabled={quantity >= product.stock}
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-100 disabled:opacity-50 transition-colors touch-manipulation"
-                        aria-label="Increase quantity"
+                        className="p-3 text-charcoal-500 hover:text-charcoal-700 disabled:opacity-50"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -323,7 +299,7 @@ export default function ProductPage() {
                       size="lg"
                       className="flex-1 bg-sage-400 hover:bg-sage-500 text-white"
                       onClick={handleAddToCart}
-                      disabled={product.stock === 0 || isAddingToCart || !sessionId}
+                      disabled={product.stock === 0 || isAddingToCart}
                     >
                       {isAddingToCart ? (
                         <>

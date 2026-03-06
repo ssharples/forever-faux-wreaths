@@ -154,7 +154,6 @@ function AnimatedPrice({ value }: { value: number | null }) {
     };
 
     requestAnimationFrame(animate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   if (value === null) {

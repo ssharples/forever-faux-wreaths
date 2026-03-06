@@ -2,10 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import {
   Plus,
   Search,
@@ -19,6 +15,10 @@ import {
   ArrowUpDown,
   Loader2,
 } from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import Image from "next/image";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,8 +48,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
   active: "bg-green-100 text-green-700",
@@ -57,35 +56,28 @@ const statusColors: Record<string, string> = {
 };
 
 export default function ProductsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "sold-out">("all");
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Id<"products"> | null>(null);
-
-  // Fetch products from Convex
-  const products = useQuery(api.products.list, 
-    statusFilter === "all" ? {} : { status: statusFilter }
-  );
-  const categories = useQuery(api.categories.list);
+  const allProducts = useQuery(api.products.list, {});
+  const categories = useQuery(api.categories.list, {});
   const removeProduct = useMutation(api.products.remove);
   const updateProduct = useMutation(api.products.update);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const isLoading = products === undefined;
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
-  // Filter products by search query
-  const filteredProducts = products?.filter((product) => {
+  const getCategoryName = (categoryId: string) => {
+    return categories?.find((c) => c._id === categoryId)?.name ?? "\u2014";
+  };
+
+  const filteredProducts = (allProducts ?? []).filter((product) => {
     const matchesSearch = product.title
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  }) ?? [];
-
-  // Get category name by ID
-  const getCategoryName = (categoryId: Id<"categories">) => {
-    const category = categories?.find((c) => c._id === categoryId);
-    return category?.name ?? "Unknown";
-  };
+    const matchesStatus =
+      statusFilter === "all" || product.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const toggleSelectAll = () => {
     if (selectedProducts.length === filteredProducts.length) {
@@ -103,45 +95,13 @@ export default function ProductsPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!productToDelete) return;
-    try {
-      await removeProduct({ id: productToDelete });
-      toast.success("Product deleted successfully");
-      setProductToDelete(null);
-      setDeleteDialogOpen(false);
-    } catch (error) {
-      toast.error("Failed to delete product");
-    }
-  };
-
-  const handleBulkStatusUpdate = async (status: "active" | "draft" | "sold-out") => {
-    try {
-      await Promise.all(
-        selectedProducts.map((id) =>
-          updateProduct({ id: id as Id<"products">, status })
-        )
-      );
-      toast.success(`${selectedProducts.length} product(s) updated to ${status}`);
-      setSelectedProducts([]);
-    } catch (error) {
-      toast.error("Failed to update products");
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    try {
-      await Promise.all(
-        selectedProducts.map((id) =>
-          removeProduct({ id: id as Id<"products"> })
-        )
-      );
-      toast.success(`${selectedProducts.length} product(s) deleted`);
-      setSelectedProducts([]);
-    } catch (error) {
-      toast.error("Failed to delete products");
-    }
-  };
+  if (allProducts === undefined) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 text-sage-400 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -173,10 +133,7 @@ export default function ProductsPage() {
               className="pl-10"
             />
           </div>
-          <Select 
-            value={statusFilter} 
-            onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
-          >
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
@@ -198,25 +155,31 @@ export default function ProductsPage() {
             {selectedProducts.length} product(s) selected
           </span>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleBulkStatusUpdate("active")}
-            >
-              Set Active
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleBulkStatusUpdate("draft")}
-            >
-              Set Draft
-            </Button>
+            <Button variant="outline" size="sm" onClick={async () => {
+              for (const id of selectedProducts) {
+                await updateProduct({ id: id as any, status: "active" });
+              }
+              setSelectedProducts([]);
+              toast.success("Products set to active");
+            }}>Set Active</Button>
+            <Button variant="outline" size="sm" onClick={async () => {
+              for (const id of selectedProducts) {
+                await updateProduct({ id: id as any, status: "draft" });
+              }
+              setSelectedProducts([]);
+              toast.success("Products set to draft");
+            }}>Set Draft</Button>
             <Button
               variant="outline"
               size="sm"
               className="text-destructive hover:bg-destructive/10"
-              onClick={handleBulkDelete}
+              onClick={async () => {
+                for (const id of selectedProducts) {
+                  await removeProduct({ id: id as any });
+                }
+                setSelectedProducts([]);
+                toast.success("Products deleted");
+              }}
             >
               Delete
             </Button>
@@ -226,160 +189,149 @@ export default function ProductsPage() {
 
       {/* Products Table */}
       <Card className="border-cream-300 bg-white overflow-hidden">
-        {isLoading ? (
-          <div className="p-12 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-sage-400 mx-auto mb-4" />
-            <p className="text-charcoal-500">Loading products...</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-cream-50 border-b border-cream-200">
-                <tr>
-                  <th className="px-4 py-3 text-left">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-cream-50 border-b border-cream-200">
+              <tr>
+                <th className="px-4 py-3 text-left">
+                  <Checkbox
+                    checked={
+                      selectedProducts.length === filteredProducts.length &&
+                      filteredProducts.length > 0
+                    }
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                  <button className="flex items-center gap-1 hover:text-charcoal-800">
+                    Product
+                    <ArrowUpDown className="h-4 w-4" />
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                  Stock
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                  <button className="flex items-center gap-1 hover:text-charcoal-800">
+                    Price
+                    <ArrowUpDown className="h-4 w-4" />
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
+                  Category
+                </th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-charcoal-600">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-200">
+              {filteredProducts.map((product) => (
+                <tr
+                  key={product._id}
+                  className="hover:bg-cream-50 transition-colors"
+                >
+                  <td className="px-4 py-3">
                     <Checkbox
-                      checked={
-                        selectedProducts.length === filteredProducts.length &&
-                        filteredProducts.length > 0
-                      }
-                      onCheckedChange={toggleSelectAll}
+                      checked={selectedProducts.includes(product._id)}
+                      onCheckedChange={() => toggleSelect(product._id)}
                     />
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                    <button className="flex items-center gap-1 hover:text-charcoal-800">
-                      Product
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                    Stock
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                    <button className="flex items-center gap-1 hover:text-charcoal-800">
-                      Price
-                      <ArrowUpDown className="h-4 w-4" />
-                    </button>
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-charcoal-600">
-                    Category
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-charcoal-600">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cream-200">
-                {filteredProducts.map((product) => (
-                  <tr
-                    key={product._id}
-                    className="hover:bg-cream-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <Checkbox
-                        checked={selectedProducts.includes(product._id)}
-                        onCheckedChange={() => toggleSelect(product._id)}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-cream-200 shrink-0 overflow-hidden flex items-center justify-center">
-                          {product.imageUrls && product.imageUrls[0] ? (
-                            <Image
-                              src={product.imageUrls[0]}
-                              alt={product.title}
-                              width={48}
-                              height={48}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-cream-200 overflow-hidden relative shrink-0">
+                        {product.imageUrls?.[0] ? (
+                          <Image src={product.imageUrls[0]} alt={product.title} fill className="object-cover" sizes="48px" />
+                        ) : (
+                          <div className="flex items-center justify-center w-full h-full">
                             <Sparkles className="h-5 w-5 text-sage-300" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-charcoal-700 line-clamp-1">
-                            {product.title}
-                          </p>
-                          <p className="text-xs text-charcoal-400">
-                            {product.size} · {product.sizeCategory}
-                          </p>
-                        </div>
+                          </div>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className={statusColors[product.status]}>
-                        {product.status === "sold-out" 
-                          ? "Sold Out" 
-                          : product.status.charAt(0).toUpperCase() + product.status.slice(1)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-sm ${
-                          product.stock === 0
-                            ? "text-red-500"
-                            : product.stock <= 3
-                            ? "text-amber-600"
-                            : "text-charcoal-600"
-                        }`}
-                      >
-                        {product.stock === 0 ? "Out of stock" : product.stock}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-charcoal-700">
-                        £{product.price.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-charcoal-600">
-                        {getCategoryName(product.categoryId)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/shop/${product.slug}`}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/products/${product._id}`}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => {
-                              setProductToDelete(product._id);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      <div>
+                        <p className="font-medium text-charcoal-700 line-clamp-1">
+                          {product.title}
+                        </p>
+                        <p className="text-xs text-charcoal-400">
+                          {product.size}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge className={statusColors[product.status]}>
+                      {product.status.charAt(0).toUpperCase() +
+                        product.status.slice(1)}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`text-sm ${
+                        product.stock === 0
+                          ? "text-red-500"
+                          : product.stock <= 3
+                          ? "text-amber-600"
+                          : "text-charcoal-600"
+                      }`}
+                    >
+                      {product.stock === 0 ? "Out of stock" : product.stock}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="font-medium text-charcoal-700">
+                      £{product.price.toFixed(2)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-sm text-charcoal-600">
+                      {getCategoryName(product.categoryId)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/shop/${product.slug}`}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/products/${product._id}`}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setDeleteId(product._id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        {!isLoading && filteredProducts.length === 0 && (
+        {filteredProducts.length === 0 && (
           <div className="p-12 text-center">
             <Sparkles className="h-12 w-12 text-sage-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-charcoal-700 mb-2">
@@ -402,17 +354,8 @@ export default function ProductsPage() {
         )}
       </Card>
 
-      {/* Pagination */}
-      {!isLoading && filteredProducts.length > 0 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-charcoal-500">
-          <span>
-            Showing {filteredProducts.length} of {products?.length ?? 0} products
-          </span>
-        </div>
-      )}
-
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Product</AlertDialogTitle>
@@ -423,14 +366,37 @@ export default function ProductsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              onClick={async () => {
+                if (deleteId) {
+                  await removeProduct({ id: deleteId as any });
+                  toast.success("Product deleted");
+                  setDeleteId(null);
+                }
+              }}
             >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Pagination */}
+      {filteredProducts.length > 0 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-charcoal-500">
+          <span>
+            Showing {filteredProducts.length} of {(allProducts ?? []).length} products
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled>
+              Previous
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
