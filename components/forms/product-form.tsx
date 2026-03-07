@@ -33,12 +33,12 @@ import { toast } from "sonner";
 const productSchema = z.object({
   title: z.string().min(1, "Title is required"),
   slug: z.string().min(1, "Slug is required"),
-  price: z.coerce.number().positive("Price must be positive"),
+  price: z.number().positive("Price must be positive"),
   description: z.string().min(1, "Description is required"),
   size: z.string().min(1, "Size is required"),
   sizeCategory: z.enum(["small", "large"]),
   style: z.enum(["classic", "modern", "rustic", "seasonal", "memorial"]),
-  stock: z.coerce.number().int().min(0),
+  stock: z.number().int().min(0),
   status: z.enum(["active", "draft", "sold-out"]),
   featured: z.boolean(),
 });
@@ -238,12 +238,21 @@ export function ProductForm({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Price (£) *</Label>
-                  <Input type="number" step="0.01" {...register("price")} className="mt-1" />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...register("price", { valueAsNumber: true })}
+                    className="mt-1"
+                  />
                   {errors.price && <p className="text-sm text-destructive mt-1">{errors.price.message}</p>}
                 </div>
                 <div>
                   <Label>Stock *</Label>
-                  <Input type="number" {...register("stock")} className="mt-1" />
+                  <Input
+                    type="number"
+                    {...register("stock", { valueAsNumber: true })}
+                    className="mt-1"
+                  />
                   <p className="text-xs text-charcoal-400 mt-1">
                     Use exact available quantity. For one-off wreaths, set this to `1`.
                   </p>
