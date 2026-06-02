@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieConsent } from "@/components/cookie-consent";
+import { StructuredData } from "@/components/seo/structured-data";
 import { cormorantGaramond, montserrat, caveat } from "@/lib/fonts";
-import { generateLocalBusinessSchema } from "@/lib/schema";
+import { absoluteUrl, getSiteUrlObject } from "@/lib/site-url";
 
 export const metadata: Metadata = {
+  metadataBase: getSiteUrlObject(),
   title: "Forever Faux Wreaths | Handcrafted Faux Florals",
   description:
     "Beautiful handcrafted faux floral wreaths made with meaning. Ready-made wreaths and bespoke designs from Preston, Lancashire.",
@@ -59,27 +60,46 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const localBusinessSchema = generateLocalBusinessSchema();
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Forever Faux Wreaths",
+    url: absoluteUrl("/"),
+    logo: absoluteUrl("/images/logo.webp"),
+    email: "Info@foreverfauxwreaths.co.uk",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Preston",
+      addressRegion: "Lancashire",
+      addressCountry: "GB",
+    },
+    sameAs: [
+      "https://facebook.com/foreverfauxwreaths",
+      "https://instagram.com/foreverfauxwreaths",
+      "https://tiktok.com/@foreverfauxwreaths",
+    ],
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Forever Faux Wreaths",
+    url: absoluteUrl("/"),
+  };
 
   return (
     <html lang="en" className={`${cormorantGaramond.variable} ${montserrat.variable} ${caveat.variable}`}>
-      <head>
-        <Script
-          id="local-business-schema"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
-        />
-      </head>
       <body className="antialiased min-h-screen flex flex-col font-body">
+        <StructuredData data={[organizationSchema, websiteSchema]} />
         <ConvexClientProvider>
           {children}
           <Toaster
-            position="top-right"
+            position="bottom-center"
             toastOptions={{
               style: {
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                color: "var(--foreground)",
+                background: "#FFFFFF",
+                border: "1px solid #E2D9CC",
+                color: "#4A5248",
               },
             }}
           />

@@ -47,7 +47,6 @@ export default function EditProductPage() {
       size: string;
       sizeCategory: "small" | "large";
       style: "classic" | "modern" | "rustic" | "seasonal" | "memorial";
-      stock: number;
       status: "active" | "draft" | "sold-out";
       featured: boolean;
     };
@@ -95,7 +94,6 @@ export default function EditProductPage() {
           size: product.size,
           sizeCategory: product.sizeCategory,
           style: product.style,
-          stock: product.stock,
           status: product.status,
           featured: product.featured,
           colours: product.colours,

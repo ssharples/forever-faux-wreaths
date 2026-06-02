@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { requireAdmin } from "./authHelpers";
 
 export const list = query({
   args: {
@@ -7,6 +8,7 @@ export const list = query({
     productId: v.optional(v.id("products")),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const reviews =
       args.visible !== undefined
         ? await ctx.db
@@ -44,6 +46,7 @@ export const create = mutation({
     visible: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return await ctx.db.insert("reviews", {
       ...args,
       createdAt: Date.now(),
@@ -54,6 +57,7 @@ export const create = mutation({
 export const toggleVisibility = mutation({
   args: { id: v.id("reviews") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const review = await ctx.db.get(args.id);
     if (review) {
       await ctx.db.patch(args.id, { visible: !review.visible });
@@ -64,6 +68,7 @@ export const toggleVisibility = mutation({
 export const remove = mutation({
   args: { id: v.id("reviews") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     await ctx.db.delete(args.id);
   },
 });

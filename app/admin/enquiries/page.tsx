@@ -1,39 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   MoreHorizontal,
   Eye,
   MessageSquare,
-  Send,
   Clock,
   CheckCircle2,
   XCircle,
-  FileText,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { timeAgo } from "@/lib/format-date";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -49,13 +49,15 @@ const statusConfig: Record<string, { color: string; label: string }> = {
 };
 
 const statusTabs = ["all", "new", "in-discussion", "quoted", "accepted", "in-progress", "complete"];
+const editableStatuses = ["new", "in-discussion", "quoted", "accepted", "in-progress", "complete", "cancelled"] as const;
 
 export default function EnquiriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [selectedEnquiry, setSelectedEnquiry] = useState<any | null>(null);
-  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [dialogStatus, setDialogStatus] = useState<(typeof editableStatuses)[number]>("new");
+  const [dialogNotes, setDialogNotes] = useState("");
 
   const allEnquiries = useQuery(api.bespokeEnquiries.list, {});
   const updateEnquiryStatus = useMutation(api.bespokeEnquiries.updateStatus);
@@ -90,6 +92,39 @@ export default function EnquiriesPage() {
   };
 
   const statusCounts = getStatusCounts();
+
+  useEffect(() => {
+    if (!selectedEnquiry) return;
+    setDialogStatus(selectedEnquiry.status);
+    setDialogNotes(selectedEnquiry.internalNotes ?? "");
+  }, [selectedEnquiry]);
+
+  const saveSelectedEnquiry = async () => {
+    if (!selectedEnquiry) return;
+    try {
+      await updateEnquiryStatus({
+        id: selectedEnquiry._id,
+        status: dialogStatus,
+        internalNotes: dialogNotes.trim() || undefined,
+      });
+      toast.success("Enquiry updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update enquiry");
+    }
+  };
+
+  const updateStatus = async (
+    id: Id<"bespokeEnquiries">,
+    status: (typeof editableStatuses)[number],
+    successMessage: string
+  ) => {
+    try {
+      await updateEnquiryStatus({ id, status });
+      toast.success(successMessage);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update enquiry");
+    }
+  };
 
   return (
     <div className="p-6 lg:p-8">
@@ -220,82 +255,84 @@ export default function EnquiriesPage() {
                   <Button
                     size="sm"
                     className="flex-1 lg:flex-none bg-sage-400 hover:bg-sage-500 text-white"
-                    onClick={() => {
-                      updateEnquiryStatus({ id: enquiry._id, status: "in-discussion" });
-                      toast.success("Status updated to In Discussion");
-                    }}
+                    onClick={() =>
+                      void updateStatus(
+                        enquiry._id,
+                        "in-discussion",
+                        "Status updated to In Discussion"
+                      )
+                    }
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    Respond
+                    <Clock className="h-4 w-4 mr-2" />
+                    Start Discussion
                   </Button>
                 )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Open actions for enquiry from ${enquiry.name}`}
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Send Message
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Create Order
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     {enquiry.status === "new" && (
-                      <DropdownMenuItem onClick={() => {
-                        updateEnquiryStatus({ id: enquiry._id, status: "in-discussion" });
-                        toast.success("Status updated");
-                      }}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void updateStatus(enquiry._id, "in-discussion", "Status updated")
+                        }
+                      >
                         <Clock className="h-4 w-4 mr-2" />
                         Mark In Discussion
                       </DropdownMenuItem>
                     )}
                     {enquiry.status === "in-discussion" && (
-                      <DropdownMenuItem onClick={() => {
-                        updateEnquiryStatus({ id: enquiry._id, status: "quoted" });
-                        toast.success("Status updated");
-                      }}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void updateStatus(enquiry._id, "quoted", "Status updated")
+                        }
+                      >
                         <Clock className="h-4 w-4 mr-2" />
                         Mark Quoted
                       </DropdownMenuItem>
                     )}
                     {enquiry.status === "quoted" && (
-                      <DropdownMenuItem onClick={() => {
-                        updateEnquiryStatus({ id: enquiry._id, status: "accepted" });
-                        toast.success("Status updated");
-                      }}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void updateStatus(enquiry._id, "accepted", "Status updated")
+                        }
+                      >
                         <CheckCircle2 className="h-4 w-4 mr-2" />
                         Mark Accepted
                       </DropdownMenuItem>
                     )}
                     {enquiry.status === "accepted" && (
-                      <DropdownMenuItem onClick={() => {
-                        updateEnquiryStatus({ id: enquiry._id, status: "in-progress" });
-                        toast.success("Status updated");
-                      }}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void updateStatus(enquiry._id, "in-progress", "Status updated")
+                        }
+                      >
                         <Clock className="h-4 w-4 mr-2" />
                         Mark In Progress
                       </DropdownMenuItem>
                     )}
                     {enquiry.status === "in-progress" && (
-                      <DropdownMenuItem onClick={() => {
-                        updateEnquiryStatus({ id: enquiry._id, status: "complete" });
-                        toast.success("Status updated");
-                      }}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void updateStatus(enquiry._id, "complete", "Status updated")
+                        }
+                      >
                         <CheckCircle2 className="h-4 w-4 mr-2" />
                         Mark Complete
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem
                       className="text-destructive"
-                      onClick={() => {
-                        updateEnquiryStatus({ id: enquiry._id, status: "cancelled" });
-                        toast.success("Enquiry cancelled");
-                      }}
+                      onClick={() =>
+                        void updateStatus(enquiry._id, "cancelled", "Enquiry cancelled")
+                      }
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       Cancel
@@ -332,7 +369,7 @@ export default function EnquiriesPage() {
 
       {/* View Enquiry Dialog */}
       <Dialog
-        open={!!selectedEnquiry && !quoteDialogOpen}
+        open={!!selectedEnquiry}
         onOpenChange={() => setSelectedEnquiry(null)}
       >
         {selectedEnquiry && (
@@ -363,6 +400,25 @@ export default function EnquiriesPage() {
                   </Badge>
                 </div>
               </div>
+
+              {selectedEnquiry.sourceProductTitle && (
+                <div className="rounded-lg border border-sage-200 bg-sage-50 p-3">
+                  <p className="text-sm text-charcoal-400">Inspired by</p>
+                  <p className="font-medium text-charcoal-700">
+                    {selectedEnquiry.sourceProductTitle}
+                  </p>
+                  {selectedEnquiry.sourceProductSlug && (
+                    <a
+                      href={`/shop/${selectedEnquiry.sourceProductSlug}`}
+                      className="text-sm text-sage-700 hover:underline"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View product
+                    </a>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -424,63 +480,47 @@ export default function EnquiriesPage() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-4">
-                {selectedEnquiry.status === "new" && (
-                  <Button
-                    className="bg-sage-400 hover:bg-sage-500 text-white"
-                    onClick={() => {
-                      updateEnquiryStatus({ id: selectedEnquiry._id, status: "in-discussion" });
-                      toast.success("Status updated to In Discussion");
-                    }}
+              <div className="grid gap-4 border-t border-cream-200 pt-4">
+                <div>
+                  <Label htmlFor="enquiry-dialog-status">Status</Label>
+                  <Select
+                    value={dialogStatus}
+                    onValueChange={(value) =>
+                      setDialogStatus(value as (typeof editableStatuses)[number])
+                    }
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    Start Discussion
-                  </Button>
-                )}
-                <Button variant="outline">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Send Message
+                    <SelectTrigger id="enquiry-dialog-status" className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {editableStatuses.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {statusConfig[status]?.label ?? status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="enquiry-dialog-notes">Internal notes</Label>
+                  <Textarea
+                    id="enquiry-dialog-notes"
+                    value={dialogNotes}
+                    onChange={(event) => setDialogNotes(event.target.value)}
+                    className="mt-1 min-h-28"
+                    placeholder="Add quote details, agreed changes, follow-up notes..."
+                  />
+                </div>
+                <Button
+                  className="bg-sage-400 hover:bg-sage-500 text-white"
+                  onClick={() => void saveSelectedEnquiry()}
+                >
+                  Save enquiry
                 </Button>
               </div>
             </div>
           </DialogContent>
         )}
-      </Dialog>
-
-      {/* Quote Dialog */}
-      <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Quote</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Quote Amount (£)</Label>
-              <Input type="number" placeholder="75.00" className="mt-1" />
-            </div>
-            <div>
-              <Label>Estimated Timeline</Label>
-              <Input placeholder="1-2 weeks" className="mt-1" />
-            </div>
-            <div>
-              <Label>Message</Label>
-              <Textarea
-                placeholder="Thank you for your enquiry! I'd love to create this for you..."
-                rows={4}
-                className="mt-1"
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button className="bg-sage-400 hover:bg-sage-500 text-white">
-                <Send className="h-4 w-4 mr-2" />
-                Send Quote
-              </Button>
-              <Button variant="outline" onClick={() => setQuoteDialogOpen(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
       </Dialog>
     </div>
   );

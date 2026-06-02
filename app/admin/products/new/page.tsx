@@ -24,7 +24,6 @@ export default function NewProductPage() {
       size: string;
       sizeCategory: "small" | "large";
       style: "classic" | "modern" | "rustic" | "seasonal" | "memorial";
-      stock: number;
       status: "active" | "draft" | "sold-out";
       featured: boolean;
     };

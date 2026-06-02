@@ -2,6 +2,17 @@ import { v } from "convex/values";
 import { query, mutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
+const MAX_CART_QUANTITY_PER_PRODUCT = 10;
+
+function requireCartOwner(args: {
+  userId?: Id<"users">;
+  sessionId?: string;
+}) {
+  if (!args.userId && !args.sessionId?.trim()) {
+    throw new Error("A cart session is required.");
+  }
+}
+
 async function getAvailableProductOrThrow(
   ctx: MutationCtx,
   productId: Id<"products">
@@ -10,10 +21,21 @@ async function getAvailableProductOrThrow(
   if (!product) {
     throw new Error("Product not found.");
   }
-  if (product.status !== "active" || product.stock <= 0) {
+  if (product.status !== "active") {
     throw new Error("This product is no longer available.");
   }
   return product;
+}
+
+function validateMadeToOrderQuantity(quantity: number) {
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new Error("Quantity must be at least 1.");
+  }
+  if (quantity > MAX_CART_QUANTITY_PER_PRODUCT) {
+    throw new Error(
+      `Please enquire for quantities above ${MAX_CART_QUANTITY_PER_PRODUCT}.`
+    );
+  }
 }
 
 export const get = query({
@@ -68,6 +90,7 @@ export const getWithProducts = query({
       cart.items.map(async (item) => {
         const product = await ctx.db.get(item.productId);
         if (!product) return null;
+        const category = await ctx.db.get(product.categoryId);
 
         const imageUrl =
           product.images.length > 0
@@ -78,6 +101,7 @@ export const getWithProducts = query({
           ...item,
           product: {
             ...product,
+            categoryName: category?.name ?? null,
             imageUrl,
           },
         };
@@ -99,11 +123,10 @@ export const addItem = mutation({
     quantity: v.number(),
   },
   handler: async (ctx, args) => {
-    if (args.quantity < 1) {
-      throw new Error("Quantity must be at least 1.");
-    }
+    requireCartOwner(args);
+    validateMadeToOrderQuantity(args.quantity);
 
-    const product = await getAvailableProductOrThrow(ctx, args.productId);
+    await getAvailableProductOrThrow(ctx, args.productId);
     let cart = null;
 
     if (args.userId) {
@@ -127,14 +150,9 @@ export const addItem = mutation({
       if (existingItemIndex >= 0) {
         newItems = [...cart.items];
         const nextQuantity = newItems[existingItemIndex].quantity + args.quantity;
-        if (nextQuantity > product.stock) {
-          throw new Error(`Only ${product.stock} available.`);
-        }
+        validateMadeToOrderQuantity(nextQuantity);
         newItems[existingItemIndex].quantity = nextQuantity;
       } else {
-        if (args.quantity > product.stock) {
-          throw new Error(`Only ${product.stock} available.`);
-        }
         newItems = [
           ...cart.items,
           { productId: args.productId, quantity: args.quantity },
@@ -166,9 +184,8 @@ export const updateItemQuantity = mutation({
     quantity: v.number(),
   },
   handler: async (ctx, args) => {
-    if (args.quantity < 1) {
-      throw new Error("Quantity must be at least 1.");
-    }
+    requireCartOwner(args);
+    validateMadeToOrderQuantity(args.quantity);
 
     let cart = null;
 
@@ -186,10 +203,7 @@ export const updateItemQuantity = mutation({
 
     if (!cart) return;
 
-    const product = await getAvailableProductOrThrow(ctx, args.productId);
-    if (args.quantity > product.stock) {
-      throw new Error(`Only ${product.stock} available.`);
-    }
+    await getAvailableProductOrThrow(ctx, args.productId);
 
     const newItems = cart.items
       .map((item) =>
@@ -213,6 +227,7 @@ export const removeItem = mutation({
     productId: v.id("products"),
   },
   handler: async (ctx, args) => {
+    requireCartOwner(args);
     let cart = null;
 
     if (args.userId) {
@@ -246,6 +261,7 @@ export const clear = mutation({
     sessionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    requireCartOwner(args);
     let cart = null;
 
     if (args.userId) {
@@ -289,7 +305,7 @@ export const mergeGuestCart = mutation({
 
       for (const guestItem of guestCart.items) {
         const product = await ctx.db.get(guestItem.productId);
-        if (!product || product.status !== "active" || product.stock <= 0) {
+        if (!product || product.status !== "active") {
           continue;
         }
 
@@ -298,13 +314,13 @@ export const mergeGuestCart = mutation({
         );
         if (existingIndex >= 0) {
           mergedItems[existingIndex].quantity = Math.min(
-            product.stock,
+            MAX_CART_QUANTITY_PER_PRODUCT,
             mergedItems[existingIndex].quantity + guestItem.quantity
           );
         } else {
           mergedItems.push({
             ...guestItem,
-            quantity: Math.min(product.stock, guestItem.quantity),
+            quantity: Math.min(MAX_CART_QUANTITY_PER_PRODUCT, guestItem.quantity),
           });
         }
       }
@@ -317,12 +333,12 @@ export const mergeGuestCart = mutation({
       const availableItems = [];
       for (const item of guestCart.items) {
         const product = await ctx.db.get(item.productId);
-        if (!product || product.status !== "active" || product.stock <= 0) {
+        if (!product || product.status !== "active") {
           continue;
         }
         availableItems.push({
           ...item,
-          quantity: Math.min(product.stock, item.quantity),
+          quantity: Math.min(MAX_CART_QUANTITY_PER_PRODUCT, item.quantity),
         });
       }
 

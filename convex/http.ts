@@ -1,3 +1,4 @@
+import Stripe from "stripe";
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -5,44 +6,54 @@ import type { Id } from "./_generated/dataModel";
 
 const http = httpRouter();
 
-async function verifyStripeSignature(
-  body: string,
-  signature: string,
-  secret: string
-): Promise<boolean> {
-  const parts = signature.split(",");
-  const timestampPart = parts.find((p) => p.startsWith("t="));
-  const sigPart = parts.find((p) => p.startsWith("v1="));
+http.route({
+  path: "/.well-known/openid-configuration",
+  method: "GET",
+  handler: httpAction(async () => {
+    const issuer = process.env.CONVEX_SITE_URL;
 
-  if (!timestampPart || !sigPart) return false;
+    if (!issuer) {
+      return new Response("CONVEX_SITE_URL not configured", { status: 500 });
+    }
 
-  const timestamp = timestampPart.slice(2);
-  const expectedSig = sigPart.slice(3);
+    return new Response(
+      JSON.stringify({
+        issuer,
+        jwks_uri: `${issuer}/.well-known/jwks.json`,
+        authorization_endpoint: `${issuer}/oauth/authorize`,
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control":
+            "public, max-age=15, stale-while-revalidate=15, stale-if-error=86400",
+        },
+      }
+    );
+  }),
+});
 
-  // Check timestamp tolerance (5 minutes)
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - parseInt(timestamp)) > 300) return false;
+http.route({
+  path: "/.well-known/jwks.json",
+  method: "GET",
+  handler: httpAction(async () => {
+    const jwks = process.env.JWKS;
 
-  const payload = `${timestamp}.${body}`;
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signatureBuffer = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(payload)
-  );
-  const computedSig = Array.from(new Uint8Array(signatureBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    if (!jwks) {
+      return new Response("JWKS not configured", { status: 500 });
+    }
 
-  return computedSig === expectedSig;
-}
+    return new Response(jwks, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control":
+          "public, max-age=15, stale-while-revalidate=15, stale-if-error=86400",
+      },
+    });
+  }),
+});
 
 http.route({
   path: "/stripe-webhook",
@@ -55,22 +66,44 @@ http.route({
       return new Response("Missing stripe-signature header", { status: 400 });
     }
 
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      console.error("STRIPE_WEBHOOK_SECRET not configured");
-      return new Response("Webhook secret not configured", { status: 500 });
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+      console.error("Stripe webhook environment variables are not configured");
+      return new Response("Webhook configuration missing", { status: 500 });
     }
 
-    const isValid = await verifyStripeSignature(body, signature, webhookSecret);
-    if (!isValid) {
-      console.error("Webhook signature verification failed");
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2026-02-25.clover",
+    });
+
+    let event: Stripe.Event;
+
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (error) {
+      console.error("Webhook signature verification failed", error);
       return new Response("Invalid signature", { status: 400 });
     }
 
-    const event = JSON.parse(body);
+    if (event.type !== "checkout.session.completed") {
+      return new Response("OK", { status: 200 });
+    }
 
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
+    const session = event.data.object as Stripe.Checkout.Session;
+    const shouldProcess = await ctx.runMutation(internal.stripe.beginWebhookProcessing, {
+      eventId: event.id,
+      eventType: event.type,
+      stripeSessionId: session.id,
+    });
+
+    if (!shouldProcess) {
+      return new Response("OK", { status: 200 });
+    }
+
+    try {
       const metadata = session.metadata || {};
       const items = JSON.parse(metadata.items || "[]");
       const deliveryMethod = (metadata.deliveryMethod || "standard") as
@@ -78,7 +111,7 @@ http.route({
         | "collection";
       const deliveryCost = parseFloat(metadata.deliveryCost || "0");
 
-      const shippingDetails = session.shipping_details;
+      const shippingDetails = session.collected_information?.shipping_details;
       const shippingAddress = shippingDetails?.address
         ? {
             line1: shippingDetails.address.line1 || "",
@@ -97,12 +130,10 @@ http.route({
 
       const subtotal = (session.amount_total || 0) / 100 - deliveryCost;
 
-      await ctx.runMutation(internal.orders.createFromStripe, {
+      const orderResult = await ctx.runMutation(internal.orders.createFromStripe, {
         stripeSessionId: session.id,
         customerName:
-          shippingDetails?.name ||
-          session.customer_details?.name ||
-          "Customer",
+          shippingDetails?.name || session.customer_details?.name || "Customer",
         customerEmail: session.customer_details?.email || "",
         shippingAddress,
         deliveryMethod,
@@ -112,11 +143,13 @@ http.route({
             title: string;
             price: number;
             quantity: number;
+            imageId?: string;
           }) => ({
             productId: item.productId as Id<"products">,
             title: item.title,
             price: item.price,
             quantity: item.quantity,
+            imageId: item.imageId as Id<"_storage"> | undefined,
           })
         ),
         subtotal,
@@ -124,9 +157,34 @@ http.route({
         total: (session.amount_total || 0) / 100,
         sessionId: metadata.cartSessionId || undefined,
       });
-    }
 
-    return new Response("OK", { status: 200 });
+      await ctx.runAction(internal.emails.sendOrderConfirmation, {
+        orderId: orderResult.orderId,
+      });
+
+      await ctx.runAction(internal.emails.sendAdminNotification, {
+        subject: `New order received – ${orderResult.orderNumber}`,
+        htmlBody: `
+          <p>A new order (<strong>${orderResult.orderNumber}</strong>) has been placed by ${session.customer_details?.email || "Customer"}.</p>
+          <p><strong>Total:</strong> £${((session.amount_total || 0) / 100).toFixed(2)}</p>
+        `,
+        notificationType: "notifyNewOrders",
+      });
+
+      await ctx.runMutation(internal.stripe.completeWebhookProcessing, {
+        eventId: event.id,
+      });
+
+      return new Response("OK", { status: 200 });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown webhook processing error";
+      await ctx.runMutation(internal.stripe.failWebhookProcessing, {
+        eventId: event.id,
+        error: message,
+      });
+      console.error("Failed to process Stripe webhook", error);
+      return new Response("Webhook processing failed", { status: 500 });
+    }
   }),
 });
 

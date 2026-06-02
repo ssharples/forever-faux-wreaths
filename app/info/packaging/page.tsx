@@ -19,7 +19,7 @@ const deliveryOptions = [
     title: "Small Items",
     subtitle: "Wreaths under 30cm",
     price: "£4.99",
-    timeframe: "3-5 working days",
+    timeframe: "Made to order in 1-2 weeks",
     description:
       "Perfect for our mini wreaths and smaller decorative pieces. Carefully boxed to protect every petal.",
   },
@@ -28,7 +28,7 @@ const deliveryOptions = [
     title: "Large Items",
     subtitle: "Wreaths 30cm and above",
     price: "£7.99",
-    timeframe: "3-5 working days",
+    timeframe: "Made to order in 1-2 weeks",
     description:
       "Our standard and large wreaths are shipped in specially designed boxes to maintain their shape during transit.",
   },
@@ -175,7 +175,7 @@ export default function PackagingPage() {
                     step: "2",
                     title: "Crafting Your Wreath",
                     description:
-                      "Your wreath is carefully prepared and quality checked (1-3 business days).",
+                      "Your wreath is made to order, prepared, and quality checked (usually 1-2 weeks).",
                   },
                   {
                     step: "3",
@@ -187,7 +187,7 @@ export default function PackagingPage() {
                     step: "4",
                     title: "Delivery",
                     description:
-                      "Your wreath arrives at your door, ready to display (3-5 working days from dispatch).",
+                      "Your wreath arrives at your door, ready to display after dispatch.",
                   },
                 ].map((item, index) => (
                   <div key={index} className="flex gap-6 items-start">
@@ -223,8 +223,8 @@ export default function PackagingPage() {
                       Processing Times
                     </h3>
                     <p className="text-sm text-charcoal-500">
-                      Ready-made wreaths typically ship within 1-3 business
-                      days. Bespoke orders may take 1-2 weeks depending on
+                      All wreaths are made to order and usually ready within
+                      1-2 weeks. Bespoke designs may vary depending on
                       complexity. During peak seasons (Christmas), please allow
                       additional time.
                     </p>

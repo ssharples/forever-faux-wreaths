@@ -55,7 +55,15 @@ const faqs = [
   },
 ];
 
-function StockBadge({ stock }: { stock: number }) {
+function StockBadge({ stock }: { stock?: number }) {
+  if (typeof stock !== "number") {
+    return (
+      <Badge variant="secondary" className="bg-sage-100 text-sage-700">
+        Made to order
+      </Badge>
+    );
+  }
+
   if (stock === 0) {
     return (
       <Badge variant="secondary" className="bg-charcoal-100 text-charcoal-500">

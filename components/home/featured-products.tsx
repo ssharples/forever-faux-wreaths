@@ -2,45 +2,45 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { QuickAddButton } from "@/components/shop/quick-add-button";
+import type { FeaturedProduct } from "@/lib/storefront";
+import { MADE_TO_ORDER_LEAD_TIME } from "@/lib/made-to-order";
 
-function ProductSkeleton() {
-  return (
-    <div className="animate-pulse">
-      <div className="aspect-square bg-cream-200 rounded-t-xl" />
-      <div className="p-4 space-y-3">
-        <div className="h-4 bg-cream-200 rounded w-3/4" />
-        <div className="h-4 bg-cream-200 rounded w-1/2" />
-      </div>
-    </div>
-  );
+type FeaturedProductsProps = {
+  products: FeaturedProduct[];
+};
+
+function buildBespokeHref(product: FeaturedProduct) {
+  const params = new URLSearchParams({
+    productId: product._id,
+    productTitle: product.title,
+    productSlug: product.slug,
+    productStyle: product.style,
+    productSize: product.size,
+    productColours: product.colours.join(", "),
+  });
+  return `/bespoke?${params.toString()}`;
 }
 
-export function FeaturedProducts() {
-  const products = useQuery(api.products.getFeatured);
-  const isLoading = products === undefined;
-
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {[...Array(4)].map((_, i) => (
-          <ProductSkeleton key={i} />
-        ))}
-      </div>
-    );
-  }
-
-  // Only show first 4 featured products
+export function FeaturedProducts({ products }: FeaturedProductsProps) {
   const featuredProducts = products.slice(0, 4);
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
       {featuredProducts.map((product) => (
-        <Link key={product._id} href={`/shop/${product.slug}`}>
-            <Card className="group overflow-hidden border-cream-300 hover:border-sage-300 transition-colors bg-white !p-0 !gap-0">
+        <Card
+          key={product._id}
+          className="group relative overflow-hidden border-cream-300 bg-white transition-colors hover:border-sage-300 !gap-0 !p-0"
+        >
+          <Link
+            href={`/shop/${product.slug}`}
+            className="absolute inset-0 z-10"
+            aria-label={`View ${product.title}`}
+          />
+          <div className="pointer-events-none">
             <div className="aspect-square relative bg-cream-50 overflow-hidden">
               {product.imageUrls[0] ? (
                 <Image
@@ -60,11 +60,6 @@ export function FeaturedProducts() {
                   Featured
                 </Badge>
               )}
-              {product.stock === 0 && (
-                <div className="absolute inset-0 bg-cream-100/80 flex items-center justify-center z-10">
-                  <span className="font-medium text-charcoal-500">Sold Out</span>
-                </div>
-              )}
               <div className="absolute inset-0 bg-charcoal-900/0 group-hover:bg-charcoal-900/5 transition-colors" />
             </div>
             <CardContent className="p-4">
@@ -78,13 +73,31 @@ export function FeaturedProducts() {
                 <p className="font-display text-lg text-charcoal-700">
                   £{product.price}
                 </p>
-                <p className="text-xs text-charcoal-500">
-                  {product.stock === 1 ? "1 available" : `${product.stock} available`}
-                </p>
+                <Badge variant="secondary" className="bg-sage-100 text-sage-700">
+                  Made to order
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-charcoal-500">
+                Ready in {MADE_TO_ORDER_LEAD_TIME}
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <QuickAddButton
+                  productId={product._id}
+                  productTitle={product.title}
+                  className="pointer-events-auto z-20 min-h-10 bg-sage-400 text-white hover:bg-sage-500"
+                />
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="pointer-events-auto z-20 min-h-10 border-sage-300 text-sage-700 hover:bg-sage-50"
+                >
+                  <Link href={buildBespokeHref(product)}>Customise</Link>
+                </Button>
               </div>
             </CardContent>
-          </Card>
-        </Link>
+          </div>
+        </Card>
       ))}
     </div>
   );

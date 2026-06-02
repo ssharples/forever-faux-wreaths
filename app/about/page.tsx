@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, Sparkles, Award, Leaf, Users, MapPin } from "lucide-react";
+import { Heart, Award, Leaf, Users, MapPin } from "lucide-react";
 import { Header, Footer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -120,7 +120,7 @@ export default function AboutPage() {
               <div className="order-1 lg:order-2">
                 <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-cream-200">
                   <Image
-                    src="/images/about-workshop.png"
+                    src="/images/about-workshop.webp"
                     alt="Creating handcrafted wreaths in our workshop"
                     fill
                     className="object-cover"

@@ -1,5 +1,16 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { auth } from "./auth";
+import { requireAdmin } from "./authHelpers";
+
+export const current = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return null;
+    return await ctx.db.get(userId);
+  },
+});
 
 export const getByEmail = query({
   args: { email: v.string() },
@@ -53,7 +64,16 @@ export const update = mutation({
     role: v.optional(v.union(v.literal("customer"), v.literal("admin"))),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { id, ...updates } = args;
     await ctx.db.patch(id, updates);
+  },
+});
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return ctx.db.query("users").order("desc").collect();
   },
 });

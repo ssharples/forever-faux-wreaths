@@ -30,6 +30,22 @@ export default function SettingsPage() {
   const [bannerMessage, setBannerMessage] = useState("");
   const [smallDeliveryPrice, setSmallDeliveryPrice] = useState("4.99");
   const [largeDeliveryPrice, setLargeDeliveryPrice] = useState("7.99");
+  const [smallDeliveryEnabled, setSmallDeliveryEnabled] = useState(true);
+  const [largeDeliveryEnabled, setLargeDeliveryEnabled] = useState(true);
+  const [collectionEnabled, setCollectionEnabled] = useState(true);
+  const [smallDeliveryTime, setSmallDeliveryTime] = useState("1-2 weeks");
+  const [largeDeliveryTime, setLargeDeliveryTime] = useState("1-2 weeks");
+  const [collectionAddress, setCollectionAddress] = useState(
+    "Preston, Lancashire (exact address provided after order)"
+  );
+
+  // Notification states
+  const [notifyNewOrders, setNotifyNewOrders] = useState(true);
+  const [notifyBespokeEnquiries, setNotifyBespokeEnquiries] = useState(true);
+  const [notifyNewsletterSignups, setNotifyNewsletterSignups] = useState(false);
+  const [notifyContactMessages, setNotifyContactMessages] = useState(true);
+  const [notifyMemorialRetailWaitlist, setNotifyMemorialRetailWaitlist] = useState(true);
+  const [notifyMemorialWholesaleInterest, setNotifyMemorialWholesaleInterest] = useState(true);
 
   // Initialize from settings
   useEffect(() => {
@@ -45,6 +61,30 @@ export default function SettingsPage() {
     const delivery = settings.deliveryPrices as { small?: number; large?: number } | undefined;
     setSmallDeliveryPrice(String(delivery?.small ?? 4.99));
     setLargeDeliveryPrice(String(delivery?.large ?? 7.99));
+    const deliveryOptions = settings.deliveryOptions as
+      | {
+          small?: { enabled?: boolean; time?: string };
+          large?: { enabled?: boolean; time?: string };
+          collection?: { enabled?: boolean; address?: string };
+        }
+      | undefined;
+    setSmallDeliveryEnabled(deliveryOptions?.small?.enabled ?? true);
+    setLargeDeliveryEnabled(deliveryOptions?.large?.enabled ?? true);
+    setCollectionEnabled(deliveryOptions?.collection?.enabled ?? true);
+    setSmallDeliveryTime(deliveryOptions?.small?.time ?? "1-2 weeks");
+    setLargeDeliveryTime(deliveryOptions?.large?.time ?? "1-2 weeks");
+    setCollectionAddress(
+      deliveryOptions?.collection?.address ??
+        "Preston, Lancashire (exact address provided after order)"
+    );
+
+    // Notification defaults are true unless explicitly set to false
+    setNotifyNewOrders(settings.notifyNewOrders !== false);
+    setNotifyBespokeEnquiries(settings.notifyBespokeEnquiries !== false);
+    setNotifyNewsletterSignups(settings.notifyNewsletterSignups === true); // default false
+    setNotifyContactMessages(settings.notifyContactMessages !== false);
+    setNotifyMemorialRetailWaitlist(settings.notifyMemorialRetailWaitlist !== false);
+    setNotifyMemorialWholesaleInterest(settings.notifyMemorialWholesaleInterest !== false);
   }, [settings]);
 
   const handleSave = async () => {
@@ -57,6 +97,30 @@ export default function SettingsPage() {
       await setSetting({ key: "holidayMode", value: holidayMode });
       await setSetting({ key: "seasonalBanner", value: { enabled: showBanner, text: bannerMessage } });
       await setSetting({ key: "deliveryPrices", value: { small: parseFloat(smallDeliveryPrice), large: parseFloat(largeDeliveryPrice), collection: 0 } });
+      await setSetting({
+        key: "deliveryOptions",
+        value: {
+          small: {
+            enabled: smallDeliveryEnabled,
+            time: smallDeliveryTime,
+          },
+          large: {
+            enabled: largeDeliveryEnabled,
+            time: largeDeliveryTime,
+          },
+          collection: {
+            enabled: collectionEnabled,
+            address: collectionAddress,
+          },
+        },
+      });
+
+      await setSetting({ key: "notifyNewOrders", value: notifyNewOrders });
+      await setSetting({ key: "notifyBespokeEnquiries", value: notifyBespokeEnquiries });
+      await setSetting({ key: "notifyNewsletterSignups", value: notifyNewsletterSignups });
+      await setSetting({ key: "notifyContactMessages", value: notifyContactMessages });
+      await setSetting({ key: "notifyMemorialRetailWaitlist", value: notifyMemorialRetailWaitlist });
+      await setSetting({ key: "notifyMemorialWholesaleInterest", value: notifyMemorialWholesaleInterest });
       toast.success("Settings saved successfully");
     } catch {
       toast.error("Failed to save settings");
@@ -132,16 +196,18 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <Label>Store Name</Label>
+                    <Label htmlFor="settings-store-name">Store Name</Label>
                     <Input
+                      id="settings-store-name"
                       value={storeName}
                       onChange={(e) => setStoreName(e.target.value)}
                       className="mt-1"
                     />
                   </div>
                   <div>
-                    <Label>Contact Email</Label>
+                    <Label htmlFor="settings-contact-email">Contact Email</Label>
                     <Input
+                      id="settings-contact-email"
                       type="email"
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
@@ -151,8 +217,9 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <Label>Location</Label>
+                  <Label htmlFor="settings-location">Location</Label>
                   <Input
+                    id="settings-location"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     className="mt-1"
@@ -160,8 +227,9 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <Label>Store Description</Label>
+                  <Label htmlFor="settings-store-description">Store Description</Label>
                   <Textarea
+                    id="settings-store-description"
                     value={storeDescription}
                     onChange={(e) => setStoreDescription(e.target.value)}
                     rows={3}
@@ -192,6 +260,7 @@ export default function SettingsPage() {
                   <Switch
                     checked={holidayMode}
                     onCheckedChange={setHolidayMode}
+                    aria-label="Enable holiday mode"
                   />
                 </div>
 
@@ -209,12 +278,14 @@ export default function SettingsPage() {
                   <Switch
                     checked={showBanner}
                     onCheckedChange={setShowBanner}
+                    aria-label="Show seasonal banner"
                   />
                 </div>
 
                 <div>
-                  <Label>Banner Message</Label>
+                  <Label htmlFor="settings-banner-message">Banner Message</Label>
                   <Input
+                    id="settings-banner-message"
                     value={bannerMessage}
                     onChange={(e) => setBannerMessage(e.target.value)}
                     className="mt-1"
@@ -247,12 +318,17 @@ export default function SettingsPage() {
                         Wreaths under 30cm
                       </p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch
+                      checked={smallDeliveryEnabled}
+                      onCheckedChange={setSmallDeliveryEnabled}
+                      aria-label="Enable small item delivery"
+                    />
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <Label>Price (£)</Label>
+                      <Label htmlFor="settings-small-delivery-price">Price (£)</Label>
                       <Input
+                        id="settings-small-delivery-price"
                         type="number"
                         step="0.01"
                         value={smallDeliveryPrice}
@@ -261,9 +337,11 @@ export default function SettingsPage() {
                       />
                     </div>
                     <div>
-                      <Label>Delivery Time</Label>
+                      <Label htmlFor="settings-small-delivery-time">Delivery Time</Label>
                       <Input
-                        defaultValue="3-5 working days"
+                        id="settings-small-delivery-time"
+                        value={smallDeliveryTime}
+                        onChange={(event) => setSmallDeliveryTime(event.target.value)}
                         className="mt-1"
                       />
                     </div>
@@ -280,12 +358,17 @@ export default function SettingsPage() {
                         Wreaths 30cm and above
                       </p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch
+                      checked={largeDeliveryEnabled}
+                      onCheckedChange={setLargeDeliveryEnabled}
+                      aria-label="Enable large item delivery"
+                    />
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <Label>Price (£)</Label>
+                      <Label htmlFor="settings-large-delivery-price">Price (£)</Label>
                       <Input
+                        id="settings-large-delivery-price"
                         type="number"
                         step="0.01"
                         value={largeDeliveryPrice}
@@ -294,9 +377,11 @@ export default function SettingsPage() {
                       />
                     </div>
                     <div>
-                      <Label>Delivery Time</Label>
+                      <Label htmlFor="settings-large-delivery-time">Delivery Time</Label>
                       <Input
-                        defaultValue="3-5 working days"
+                        id="settings-large-delivery-time"
+                        value={largeDeliveryTime}
+                        onChange={(event) => setLargeDeliveryTime(event.target.value)}
                         className="mt-1"
                       />
                     </div>
@@ -313,12 +398,18 @@ export default function SettingsPage() {
                         Preston, Lancashire
                       </p>
                     </div>
-                    <Switch defaultChecked />
+                    <Switch
+                      checked={collectionEnabled}
+                      onCheckedChange={setCollectionEnabled}
+                      aria-label="Enable local collection"
+                    />
                   </div>
                   <div>
-                    <Label>Collection Address</Label>
+                    <Label htmlFor="settings-collection-address">Collection Address</Label>
                     <Input
-                      defaultValue="Preston, Lancashire (exact address provided after order)"
+                      id="settings-collection-address"
+                      value={collectionAddress}
+                      onChange={(event) => setCollectionAddress(event.target.value)}
                       className="mt-1"
                     />
                   </div>
@@ -365,7 +456,11 @@ export default function SettingsPage() {
                     Get notified when a new order is placed
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notifyNewOrders}
+                  onCheckedChange={setNotifyNewOrders}
+                  aria-label="Notify on new orders"
+                />
               </div>
 
               <Separator />
@@ -379,7 +474,11 @@ export default function SettingsPage() {
                     Get notified when someone submits an enquiry
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notifyBespokeEnquiries}
+                  onCheckedChange={setNotifyBespokeEnquiries}
+                  aria-label="Notify on bespoke enquiries"
+                />
               </div>
 
               <Separator />
@@ -387,13 +486,54 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-charcoal-700">
-                    Low Stock Alerts
+                    Contact Messages
                   </p>
                   <p className="text-sm text-charcoal-500">
-                    Get notified when a product is running low
+                    Get notified when someone sends the contact form
                   </p>
                 </div>
-                <Switch defaultChecked />
+                <Switch
+                  checked={notifyContactMessages}
+                  onCheckedChange={setNotifyContactMessages}
+                  aria-label="Notify on contact messages"
+                />
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-charcoal-700">
+                    Memorial Topper Waitlist
+                  </p>
+                  <p className="text-sm text-charcoal-500">
+                    Get notified when someone joins the Memorial Topper list
+                  </p>
+                </div>
+                <Switch
+                  checked={notifyMemorialRetailWaitlist}
+                  onCheckedChange={setNotifyMemorialRetailWaitlist}
+                  aria-label="Notify on Memorial Topper waitlist signups"
+                />
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-charcoal-700">
+                    Memorial Topper Wholesale
+                  </p>
+                  <p className="text-sm text-charcoal-500">
+                    Get notified when a trade customer requests Memorial Topper
+                    information
+                  </p>
+                </div>
+                <Switch
+                  checked={notifyMemorialWholesaleInterest}
+                  onCheckedChange={setNotifyMemorialWholesaleInterest}
+                  aria-label="Notify on Memorial Topper wholesale enquiries"
+                />
               </div>
 
               <Separator />
@@ -407,22 +547,13 @@ export default function SettingsPage() {
                     Get notified when someone joins your mailing list
                   </p>
                 </div>
-                <Switch />
+                <Switch
+                  checked={notifyNewsletterSignups}
+                  onCheckedChange={setNotifyNewsletterSignups}
+                  aria-label="Notify on newsletter signups"
+                />
               </div>
 
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-charcoal-700">
-                    Contact Form Messages
-                  </p>
-                  <p className="text-sm text-charcoal-500">
-                    Get notified when someone sends a message
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
             </div>
           </Card>
         </TabsContent>

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { requireAdmin } from "./authHelpers";
 
 export const list = query({
   args: {},
@@ -25,6 +26,7 @@ export const create = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return await ctx.db.insert("categories", args);
   },
 });
@@ -37,6 +39,7 @@ export const update = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { id, ...updates } = args;
     await ctx.db.patch(id, updates);
   },
@@ -45,6 +48,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("categories") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     await ctx.db.delete(args.id);
   },
 });

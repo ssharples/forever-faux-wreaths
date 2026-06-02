@@ -8,17 +8,24 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
+import type * as auth from "../auth.js";
+import type * as authHelpers from "../authHelpers.js";
 import type * as bespokeEnquiries from "../bespokeEnquiries.js";
 import type * as cart from "../cart.js";
 import type * as categories from "../categories.js";
+import type * as contactMessages from "../contactMessages.js";
+import type * as emails from "../emails.js";
 import type * as galleryImages from "../galleryImages.js";
 import type * as http from "../http.js";
+import type * as memorialLeads from "../memorialLeads.js";
 import type * as newsletterSubscribers from "../newsletterSubscribers.js";
 import type * as orders from "../orders.js";
 import type * as products from "../products.js";
 import type * as reviews from "../reviews.js";
 import type * as siteSettings from "../siteSettings.js";
 import type * as stripe from "../stripe.js";
+import type * as stripeCheckout from "../stripeCheckout.js";
 import type * as users from "../users.js";
 
 import type {
@@ -28,17 +35,24 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
+  auth: typeof auth;
+  authHelpers: typeof authHelpers;
   bespokeEnquiries: typeof bespokeEnquiries;
   cart: typeof cart;
   categories: typeof categories;
+  contactMessages: typeof contactMessages;
+  emails: typeof emails;
   galleryImages: typeof galleryImages;
   http: typeof http;
+  memorialLeads: typeof memorialLeads;
   newsletterSubscribers: typeof newsletterSubscribers;
   orders: typeof orders;
   products: typeof products;
   reviews: typeof reviews;
   siteSettings: typeof siteSettings;
   stripe: typeof stripe;
+  stripeCheckout: typeof stripeCheckout;
   users: typeof users;
 }>;
 

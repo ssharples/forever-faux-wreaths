@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Header, Footer } from "@/components/layout";
 
+const tableWrapperClass = "my-6 max-w-full overflow-x-auto";
+const tableClass = "min-w-[560px] w-full text-sm";
+
 export default function CookiePolicyPage() {
   return (
     <>
@@ -11,9 +14,7 @@ export default function CookiePolicyPage() {
         <section className="bg-gradient-to-b from-cream-100 to-cream-200 py-12">
           <div className="container-narrow">
             <h1 className="mb-4">Cookie Policy</h1>
-            <p className="text-charcoal-500">
-              Last updated: January 2025
-            </p>
+            <p className="text-charcoal-500">Last updated: January 2025</p>
           </div>
         </section>
 
@@ -45,37 +46,53 @@ export default function CookiePolicyPage() {
 
               <h3>Essential Cookies</h3>
               <p>
-                These cookies are necessary for the website to function properly.
-                They enable basic features like page navigation and access to
-                secure areas. The website cannot function properly without these
-                cookies.
+                These cookies are necessary for the website to function
+                properly. They enable basic features like page navigation and
+                access to secure areas. The website cannot function properly
+                without these cookies.
               </p>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="text-left pb-2">Cookie Name</th>
-                    <th className="text-left pb-2">Purpose</th>
-                    <th className="text-left pb-2">Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="py-2 border-t border-cream-300">session_id</td>
-                    <td className="py-2 border-t border-cream-300">Maintains your session</td>
-                    <td className="py-2 border-t border-cream-300">Session</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 border-t border-cream-300">cart</td>
-                    <td className="py-2 border-t border-cream-300">Stores shopping cart contents</td>
-                    <td className="py-2 border-t border-cream-300">7 days</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 border-t border-cream-300">cookie_consent</td>
-                    <td className="py-2 border-t border-cream-300">Remembers your cookie preferences</td>
-                    <td className="py-2 border-t border-cream-300">1 year</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className={tableWrapperClass}>
+                <table className={tableClass}>
+                  <thead>
+                    <tr>
+                      <th className="text-left pb-2 pr-4">Cookie Name</th>
+                      <th className="text-left pb-2 pr-4">Purpose</th>
+                      <th className="text-left pb-2">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        session_id
+                      </td>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        Maintains your session
+                      </td>
+                      <td className="py-2 border-t border-cream-300">
+                        Session
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        cart
+                      </td>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        Stores shopping cart contents
+                      </td>
+                      <td className="py-2 border-t border-cream-300">7 days</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        cookie_consent
+                      </td>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        Remembers your cookie preferences
+                      </td>
+                      <td className="py-2 border-t border-cream-300">1 year</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <h3>Functional Cookies</h3>
               <p>
@@ -83,49 +100,69 @@ export default function CookiePolicyPage() {
                 such as remembering your preferences. If you do not allow these
                 cookies, some features may not function properly.
               </p>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="text-left pb-2">Cookie Name</th>
-                    <th className="text-left pb-2">Purpose</th>
-                    <th className="text-left pb-2">Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="py-2 border-t border-cream-300">preferences</td>
-                    <td className="py-2 border-t border-cream-300">Stores display preferences</td>
-                    <td className="py-2 border-t border-cream-300">1 year</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className={tableWrapperClass}>
+                <table className={tableClass}>
+                  <thead>
+                    <tr>
+                      <th className="text-left pb-2 pr-4">Cookie Name</th>
+                      <th className="text-left pb-2 pr-4">Purpose</th>
+                      <th className="text-left pb-2">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        preferences
+                      </td>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        Stores display preferences
+                      </td>
+                      <td className="py-2 border-t border-cream-300">1 year</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <h3>Analytics Cookies</h3>
               <p>
                 These cookies help us understand how visitors interact with our
                 website by collecting and reporting information anonymously.
               </p>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="text-left pb-2">Cookie Name</th>
-                    <th className="text-left pb-2">Purpose</th>
-                    <th className="text-left pb-2">Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="py-2 border-t border-cream-300">_ga</td>
-                    <td className="py-2 border-t border-cream-300">Google Analytics - distinguishes users</td>
-                    <td className="py-2 border-t border-cream-300">2 years</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 border-t border-cream-300">_ga_*</td>
-                    <td className="py-2 border-t border-cream-300">Google Analytics - maintains session state</td>
-                    <td className="py-2 border-t border-cream-300">2 years</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className={tableWrapperClass}>
+                <table className={tableClass}>
+                  <thead>
+                    <tr>
+                      <th className="text-left pb-2 pr-4">Cookie Name</th>
+                      <th className="text-left pb-2 pr-4">Purpose</th>
+                      <th className="text-left pb-2">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        _ga
+                      </td>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        Google Analytics - distinguishes users
+                      </td>
+                      <td className="py-2 border-t border-cream-300">
+                        2 years
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        _ga_*
+                      </td>
+                      <td className="py-2 pr-4 border-t border-cream-300">
+                        Google Analytics - maintains session state
+                      </td>
+                      <td className="py-2 border-t border-cream-300">
+                        2 years
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <h3>Marketing Cookies</h3>
               <p>
@@ -134,9 +171,9 @@ export default function CookiePolicyPage() {
                 and show you relevant adverts on other sites.
               </p>
               <p>
-                We currently do not use marketing cookies, but this may change in
-                the future. If we do, we will update this policy and request your
-                consent.
+                We currently do not use marketing cookies, but this may change
+                in the future. If we do, we will update this policy and request
+                your consent.
               </p>
 
               <h2>4. Third-Party Cookies</h2>
@@ -146,7 +183,8 @@ export default function CookiePolicyPage() {
               </p>
               <ul>
                 <li>
-                  <strong>PayPal:</strong> For secure payment processing
+                  <strong>Stripe:</strong> For secure checkout and payment
+                  processing
                 </li>
                 <li>
                   <strong>Google Analytics:</strong> For website analytics
@@ -156,8 +194,9 @@ export default function CookiePolicyPage() {
               <h2>5. Managing Cookies</h2>
               <p>
                 You can control and manage cookies in various ways. Please note
-                that removing or blocking cookies may affect your user experience
-                and parts of the website may no longer be fully accessible.
+                that removing or blocking cookies may affect your user
+                experience and parts of the website may no longer be fully
+                accessible.
               </p>
 
               <h3>Browser Settings</h3>
@@ -249,7 +288,10 @@ export default function CookiePolicyPage() {
               <p>
                 For more information about how we handle your personal data,
                 please see our{" "}
-                <Link href="/legal/privacy" className="text-sage-600 hover:underline">
+                <Link
+                  href="/legal/privacy"
+                  className="text-sage-600 hover:underline"
+                >
                   Privacy Policy
                 </Link>
                 .

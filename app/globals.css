@@ -28,13 +28,13 @@
   --color-sage-50: #F4F6F1;
   --color-sage-100: #E5EAE0;
   --color-sage-200: #CDD8C4;
-  --color-sage-300: #B5C4A1;
-  --color-sage-400: #A3B18A;
-  --color-sage-500: #8A9A73;
-  --color-sage-600: #71825C;
-  --color-sage-700: #5A6949;
-  --color-sage-800: #454F38;
-  --color-sage-900: #323929;
+  --color-sage-300: #8EA177;
+  --color-sage-400: #5A6949;
+  --color-sage-500: #454F38;
+  --color-sage-600: #323929;
+  --color-sage-700: #2A3024;
+  --color-sage-800: #21261D;
+  --color-sage-900: #171B14;
 
   /* Charcoal color scale (from logo text) */
   --color-charcoal-50: #F5F6F5;
@@ -67,16 +67,6 @@
   --color-error: #C45C5C;
   --color-warning: #D4A85A;
 
-  /* Seasonal colors */
-  --color-christmas-red: #8B2635;
-  --color-christmas-red-dark: #6B1D28;
-  
-  /* Status colors (amber for in-progress) */
-  --color-amber-100: #FEF3C7;
-  --color-amber-200: #FDE68A;
-  --color-amber-600: #D97706;
-  --color-amber-700: #B45309;
-
   /* Font families - CSS variables injected by next/font */
   /* --font-display, --font-body, --font-handwritten are set on <html> by next/font */
 
@@ -92,7 +82,7 @@
   --shadow-sm: 0 1px 2px rgba(74, 82, 72, 0.04), 0 2px 4px rgba(74, 82, 72, 0.04);
   --shadow-md: 0 2px 4px rgba(74, 82, 72, 0.04), 0 4px 8px rgba(74, 82, 72, 0.06), 0 8px 16px rgba(74, 82, 72, 0.04);
   --shadow-lg: 0 4px 8px rgba(74, 82, 72, 0.04), 0 8px 16px rgba(74, 82, 72, 0.06), 0 16px 32px rgba(74, 82, 72, 0.08);
-  --shadow-sage-glow: 0 0 0 3px rgba(163, 177, 138, 0.3);
+  --shadow-sage-glow: 0 0 0 3px rgba(90, 105, 73, 0.24);
 
   /* Sidebar colors */
   --color-sidebar-ring: var(--sidebar-ring);
@@ -121,7 +111,7 @@
   --card-foreground: #4A5248;
   --popover: #FFFFFF;
   --popover-foreground: #4A5248;
-  --primary: #A3B18A;
+  --primary: #5A6949;
   --primary-foreground: #FFFFFF;
   --secondary: #F5F1EB;
   --secondary-foreground: #5E655A;
@@ -132,10 +122,10 @@
   --destructive: #C45C5C;
   --border: #E2D9CC;
   --input: #E2D9CC;
-  --ring: #A3B18A;
+  --ring: #5A6949;
 
   /* Chart colors */
-  --chart-1: #A3B18A;
+  --chart-1: #5A6949;
   --chart-2: #D4A5A5;
   --chart-3: #C4846C;
   --chart-4: #D4B85A;
@@ -144,12 +134,12 @@
   /* Sidebar */
   --sidebar: #FAF8F5;
   --sidebar-foreground: #4A5248;
-  --sidebar-primary: #A3B18A;
+  --sidebar-primary: #5A6949;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E5EAE0;
   --sidebar-accent-foreground: #5A6949;
   --sidebar-border: #E2D9CC;
-  --sidebar-ring: #A3B18A;
+  --sidebar-ring: #5A6949;
 }
 
 /* No dark mode for this brand - warm cottage aesthetic */
@@ -157,10 +147,6 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-
-  html {
-    scroll-behavior: smooth;
   }
 
   body {
@@ -174,42 +160,49 @@
   }
 
   h1 {
-    @apply text-3xl md:text-4xl lg:text-5xl font-normal tracking-tight text-charcoal-600;
+    @apply text-3xl md:text-4xl lg:text-5xl font-normal tracking-tight;
+    color: #4A5248;
     line-height: 1.2;
   }
 
   h2 {
-    @apply text-2xl md:text-3xl lg:text-4xl font-normal text-charcoal-600;
+    @apply text-2xl md:text-3xl lg:text-4xl font-normal;
+    color: #4A5248;
     line-height: 1.25;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
 
   h3 {
-    @apply text-xl md:text-2xl lg:text-3xl font-medium text-charcoal-600;
+    @apply text-xl md:text-2xl lg:text-3xl font-medium;
+    color: #4A5248;
     line-height: 1.3;
   }
 
   h4 {
-    @apply text-lg md:text-xl lg:text-2xl font-semibold text-charcoal-600;
+    @apply text-lg md:text-xl lg:text-2xl font-semibold;
     font-family: var(--font-body);
+    color: #4A5248;
     line-height: 1.4;
   }
 
   h5 {
-    @apply text-base md:text-lg lg:text-xl font-semibold text-charcoal-600;
+    @apply text-base md:text-lg lg:text-xl font-semibold;
     font-family: var(--font-body);
+    color: #4A5248;
     line-height: 1.4;
   }
 
   h6 {
-    @apply text-sm md:text-base lg:text-lg font-semibold text-charcoal-600;
+    @apply text-sm md:text-base lg:text-lg font-semibold;
     font-family: var(--font-body);
+    color: #4A5248;
     line-height: 1.5;
   }
 
   /* Paragraph styles */
   p {
-    @apply leading-relaxed text-charcoal-500;
+    @apply leading-relaxed;
+    color: #5E655A;
   }
 
   /* Links */
@@ -217,9 +210,31 @@
     @apply transition-colors duration-200;
   }
 
-  /* Focus states - uses ring token */
+  /* Focus states */
   :focus-visible {
-    @apply outline-2 outline-sage-400 outline-offset-2;
+    outline: 2px solid #5A6949;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -236,8 +251,9 @@
   /* Hero text styles */
   .hero-title {
     font-family: var(--font-display);
-    @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal text-charcoal-600;
-    letter-spacing: -0.02em;
+    @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-normal;
+    color: #4A5248;
+    letter-spacing: 0;
     line-height: 1.1;
   }
 
@@ -266,19 +282,6 @@
     font-family: var(--font-handwritten);
   }
 
-  /* Stock badges */
-  .badge-in-stock {
-    @apply bg-sage-100 text-sage-700;
-  }
-
-  .badge-low-stock {
-    @apply bg-gold-400/20 text-gold-500;
-  }
-
-  .badge-sold-out {
-    @apply bg-charcoal-100 text-charcoal-500;
-  }
-
   /* Image hover effect */
   .image-hover {
     @apply transition-transform duration-300 ease-out;
@@ -295,11 +298,11 @@
 
   /* Star rating */
   .star-filled {
-    @apply text-gold-400;
+    color: #D4B85A;
   }
 
   .star-empty {
-    @apply text-cream-400;
+    color: #E2D9CC;
   }
 
   /* Prose styles for legal pages - mobile-first */
@@ -309,19 +312,23 @@
   }
 
   .prose h2 {
-    @apply text-xl md:text-2xl mt-8 md:mt-10 mb-3 md:mb-4 font-medium text-charcoal-600;
+    @apply text-xl md:text-2xl mt-8 md:mt-10 mb-3 md:mb-4 font-medium;
+    color: #4A5248;
   }
 
   .prose h3 {
-    @apply text-lg md:text-xl mt-6 md:mt-8 mb-2 md:mb-3 font-medium text-charcoal-600;
+    @apply text-lg md:text-xl mt-6 md:mt-8 mb-2 md:mb-3 font-medium;
+    color: #4A5248;
   }
 
   .prose p {
-    @apply mb-3 md:mb-4 text-charcoal-500;
+    @apply mb-3 md:mb-4;
+    color: #5E655A;
   }
 
   .prose ul, .prose ol {
-    @apply mb-3 md:mb-4 pl-5 md:pl-6 text-charcoal-500;
+    @apply mb-3 md:mb-4 pl-5 md:pl-6;
+    color: #5E655A;
   }
 
   .prose ul {
@@ -417,7 +424,7 @@
   }
 
   .ease-bounce {
-    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   /* Text balance for headings */

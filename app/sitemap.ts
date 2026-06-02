@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
+import { getSiteUrl } from "@/lib/site-url";
+import { getIndexableProducts } from "@/lib/storefront";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://foreverfauxwreaths.co.uk";
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = getSiteUrl();
+  const products = await getIndexableProducts();
 
-  // Static pages
   const staticPages = [
     "",
+    "/memorial-topper",
     "/shop",
     "/bespoke",
     "/gallery",
@@ -19,63 +22,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/legal/cookies",
   ];
 
-  // Collection pages
-  const collectionPages = [
-    "/collections",
-    "/collections/memorial-wreaths",
-    "/collections/funeral-wreaths",
-    "/collections/door-wreaths",
-    "/collections/christmas-wreaths",
-    "/collections/autumn-wreaths",
-  ];
-
-  // Service area pages
-  const serviceAreaPages = [
-    "/service-areas",
-    "/service-areas/preston",
-    "/service-areas/lancashire",
-    "/service-areas/manchester",
-  ];
-
-  // Guide pages
-  const guidePages = [
-    "/guides",
-    "/guides/choosing-funeral-wreath",
-    "/guides/faux-vs-fresh-wreaths",
-  ];
-
   const staticRoutes: MetadataRoute.Sitemap = staticPages.map((route) => ({
     url: `${baseUrl}${route}`,
-    lastModified: new Date(),
     changeFrequency: route === "" ? "weekly" : "monthly",
     priority: route === "" ? 1 : route === "/shop" ? 0.9 : 0.7,
   }));
 
-  const collectionRoutes: MetadataRoute.Sitemap = collectionPages.map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date(),
-    changeFrequency: "weekly" as const,
-    priority: route === "/collections" ? 0.85 : 0.8,
+  const productRoutes: MetadataRoute.Sitemap = products.map((product) => ({
+    url: `${baseUrl}/shop/${product.slug}`,
+    lastModified: new Date(product.updatedAt),
+    changeFrequency: "weekly",
+    priority: 0.8,
   }));
 
-  const serviceAreaRoutes: MetadataRoute.Sitemap = serviceAreaPages.map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date(),
-    changeFrequency: "monthly" as const,
-    priority: 0.7,
-  }));
-
-  const guideRoutes: MetadataRoute.Sitemap = guidePages.map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date(),
-    changeFrequency: "monthly" as const,
-    priority: 0.6,
-  }));
-
-  return [
-    ...staticRoutes,
-    ...collectionRoutes,
-    ...serviceAreaRoutes,
-    ...guideRoutes,
-  ];
+  return [...staticRoutes, ...productRoutes];
 }

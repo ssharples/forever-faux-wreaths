@@ -1,7 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  ...authTables,
+
   products: defineTable({
     title: v.string(),
     slug: v.string(),
@@ -18,7 +21,9 @@ export default defineSchema({
       v.literal("memorial")
     ),
     suitableFor: v.array(v.string()),
-    stock: v.number(),
+    stock: v.optional(v.number()),
+    madeToOrder: v.optional(v.boolean()),
+    productionLeadTime: v.optional(v.string()),
     categoryId: v.id("categories"),
     featured: v.boolean(),
     sizeCategory: v.union(v.literal("small"), v.literal("large")),
@@ -72,6 +77,9 @@ export default defineSchema({
     status: v.union(
       v.literal("pending"),
       v.literal("processing"),
+      v.literal("shipped"),
+      v.literal("completed"),
+      v.literal("issue"),
       v.literal("dispatched"),
       v.literal("delivered"),
       v.literal("collected")
@@ -81,11 +89,30 @@ export default defineSchema({
     paymentId: v.string(),
     stripeSessionId: v.optional(v.string()),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
   })
     .index("by_orderNumber", ["orderNumber"])
     .index("by_customer", ["customerId"])
     .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_stripeSessionId", ["stripeSessionId"]),
+
+  orderCommunications: defineTable({
+    orderId: v.id("orders"),
+    recipientEmail: v.string(),
+    subject: v.string(),
+    message: v.string(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("sent"),
+      v.literal("failed")
+    ),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_order", ["orderId"])
+    .index("by_status", ["status"]),
 
   bespokeEnquiries: defineTable({
     name: v.string(),
@@ -101,6 +128,9 @@ export default defineSchema({
     customSize: v.optional(v.string()),
     occasion: v.string(),
     inspirationImages: v.array(v.id("_storage")),
+    sourceProductId: v.optional(v.id("products")),
+    sourceProductTitle: v.optional(v.string()),
+    sourceProductSlug: v.optional(v.string()),
     notes: v.optional(v.string()),
     estimatedPrice: v.optional(v.string()),
     status: v.union(
@@ -114,7 +144,68 @@ export default defineSchema({
     ),
     internalNotes: v.optional(v.string()),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
   })
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
+
+  contactMessages: defineTable({
+    name: v.string(),
+    email: v.string(),
+    subject: v.optional(v.string()),
+    message: v.string(),
+    consent: v.boolean(),
+    status: v.union(
+      v.literal("new"),
+      v.literal("read"),
+      v.literal("replied"),
+      v.literal("archived")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
+
+  memorialLeads: defineTable({
+    leadType: v.union(
+      v.literal("retail-waitlist"),
+      v.literal("wholesale-interest")
+    ),
+    productKey: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    interestType: v.optional(
+      v.union(v.literal("waiting-list"), v.literal("early-access"))
+    ),
+    businessName: v.optional(v.string()),
+    businessType: v.optional(v.string()),
+    website: v.optional(v.string()),
+    requestedInfo: v.array(
+      v.union(
+        v.literal("wholesale-pricing"),
+        v.literal("minimum-order-quantities"),
+        v.literal("sample-availability"),
+        v.literal("launch-dates"),
+        v.literal("trade-packs")
+      )
+    ),
+    message: v.optional(v.string()),
+    privacyConsent: v.boolean(),
+    marketingConsent: v.optional(v.boolean()),
+    status: v.union(
+      v.literal("new"),
+      v.literal("contacted"),
+      v.literal("converted"),
+      v.literal("archived")
+    ),
+    internalNotes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_email_type_product", ["email", "leadType", "productKey"])
+    .index("by_leadType", ["leadType"])
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"]),
 
@@ -155,7 +246,9 @@ export default defineSchema({
     name: v.optional(v.string()),
     role: v.union(v.literal("customer"), v.literal("admin")),
     createdAt: v.number(),
-  }).index("by_email", ["email"]),
+  })
+    .index("by_email", ["email"])
+    .index("by_role", ["role"]),
 
   cart: defineTable({
     userId: v.optional(v.id("users")),
@@ -170,4 +263,20 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_session", ["sessionId"]),
+
+  stripeWebhookEvents: defineTable({
+    eventId: v.string(),
+    eventType: v.string(),
+    stripeSessionId: v.optional(v.string()),
+    status: v.union(
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("error")
+    ),
+    attempts: v.number(),
+    lastError: v.optional(v.string()),
+    processedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_eventId", ["eventId"]),
 });

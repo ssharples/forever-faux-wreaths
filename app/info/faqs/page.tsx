@@ -15,7 +15,7 @@ const faqs = [
       {
         question: "How long does delivery take?",
         answer:
-          "Standard UK delivery typically takes 3-5 working days. All wreaths are carefully packaged to ensure they arrive in perfect condition. Processing time is usually 1-3 business days before dispatch.",
+          "Every wreath is made to order. Please allow 1-2 weeks for making and preparation before delivery or collection. Standard UK delivery is then added after dispatch.",
       },
       {
         question: "Do you offer local collection?",
@@ -90,7 +90,7 @@ const faqs = [
       {
         question: "What payment methods do you accept?",
         answer:
-          "We accept PayPal (including Pay Later) and card payments via SumUp. All transactions are secure and encrypted.",
+          "We use Stripe Checkout for secure payment. You can pay by card, and any additional payment methods available for your order will be shown at checkout.",
       },
       {
         question: "Do you offer refunds?",

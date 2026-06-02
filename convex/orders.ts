@@ -1,19 +1,26 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { auth } from "./auth";
+import { requireAdmin } from "./authHelpers";
+
+const orderStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("processing"),
+  v.literal("shipped"),
+  v.literal("completed"),
+  v.literal("issue"),
+  v.literal("dispatched"),
+  v.literal("delivered"),
+  v.literal("collected")
+);
 
 export const list = query({
   args: {
-    status: v.optional(
-      v.union(
-        v.literal("pending"),
-        v.literal("processing"),
-        v.literal("dispatched"),
-        v.literal("delivered"),
-        v.literal("collected")
-      )
-    ),
+    status: v.optional(orderStatusValidator),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return args.status
       ? await ctx.db
           .query("orders")
@@ -37,6 +44,7 @@ export const getByOrderNumber = query({
 export const getByCustomer = query({
   args: { customerId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return await ctx.db
       .query("orders")
       .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
@@ -48,6 +56,53 @@ export const getByCustomer = query({
 export const getById = query({
   args: { id: v.id("orders") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const getCommunications = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.db
+      .query("orderCommunications")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .order("desc")
+      .collect();
+  },
+});
+
+export const getForCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) return [];
+
+    const user = await ctx.db.get(userId);
+    if (!user) return [];
+
+    const orders = await ctx.db.query("orders").order("desc").collect();
+    const email = user.email.toLowerCase().trim();
+
+    return orders.filter(
+      (order) =>
+        order.customerId === userId ||
+        order.customerEmail.toLowerCase().trim() === email
+    );
+  },
+});
+
+export const getByIdInternal = internalQuery({
+  args: { id: v.id("orders") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const getCommunicationByIdInternal = internalQuery({
+  args: { id: v.id("orderCommunications") },
+  handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
 });
@@ -56,6 +111,14 @@ function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `FFW-${timestamp}-${random}`;
+}
+
+function normaliseEmail(email: string) {
+  const normalised = email.toLowerCase().trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalised)) {
+    throw new Error("A valid customer email is required.");
+  }
+  return normalised;
 }
 
 export const create = mutation({
@@ -91,26 +154,17 @@ export const create = mutation({
     stripeSessionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const orderNumber = generateOrderNumber();
+    const customerEmail = normaliseEmail(args.customerEmail);
     const orderId = await ctx.db.insert("orders", {
       ...args,
+      customerEmail,
       orderNumber,
       status: "pending",
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     });
-
-    // Decrease stock for purchased items
-    for (const item of args.items) {
-      const product = await ctx.db.get(item.productId);
-      if (product) {
-        const newStock = Math.max(0, product.stock - item.quantity);
-        await ctx.db.patch(item.productId, {
-          stock: newStock,
-          status: newStock === 0 ? "sold-out" : product.status,
-          updatedAt: Date.now(),
-        });
-      }
-    }
 
     return { orderId, orderNumber };
   },
@@ -119,8 +173,12 @@ export const create = mutation({
 export const getByStripeSession = query({
   args: { stripeSessionId: v.string() },
   handler: async (ctx, args) => {
-    const orders = await ctx.db.query("orders").collect();
-    return orders.find((o) => o.stripeSessionId === args.stripeSessionId) ?? null;
+    return await ctx.db
+      .query("orders")
+      .withIndex("by_stripeSessionId", (q) =>
+        q.eq("stripeSessionId", args.stripeSessionId)
+      )
+      .first();
   },
 });
 
@@ -154,15 +212,26 @@ export const createFromStripe = internalMutation({
   },
   handler: async (ctx, args) => {
     // Idempotency check - don't create duplicate orders
-    const existing = await ctx.db.query("orders").collect();
-    const dup = existing.find((o) => o.stripeSessionId === args.stripeSessionId);
+    const dup = await ctx.db
+      .query("orders")
+      .withIndex("by_stripeSessionId", (q) =>
+        q.eq("stripeSessionId", args.stripeSessionId)
+      )
+      .first();
     if (dup) return { orderId: dup._id, orderNumber: dup.orderNumber };
+
+    const customerEmail = normaliseEmail(args.customerEmail);
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", customerEmail))
+      .first();
 
     const orderNumber = generateOrderNumber();
     const orderId = await ctx.db.insert("orders", {
       orderNumber,
+      customerId: existingUser?._id,
       customerName: args.customerName,
-      customerEmail: args.customerEmail,
+      customerEmail,
       shippingAddress: args.shippingAddress,
       deliveryMethod: args.deliveryMethod,
       items: args.items,
@@ -174,20 +243,8 @@ export const createFromStripe = internalMutation({
       paymentId: args.stripeSessionId,
       stripeSessionId: args.stripeSessionId,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     });
-
-    // Decrease stock for purchased items
-    for (const item of args.items) {
-      const product = await ctx.db.get(item.productId);
-      if (product) {
-        const newStock = Math.max(0, product.stock - item.quantity);
-        await ctx.db.patch(item.productId, {
-          stock: newStock,
-          status: newStock === 0 ? "sold-out" : product.status,
-          updatedAt: Date.now(),
-        });
-      }
-    }
 
     // Clear the guest cart if sessionId provided
     if (args.sessionId) {
@@ -207,18 +264,106 @@ export const createFromStripe = internalMutation({
 export const updateStatus = mutation({
   args: {
     id: v.id("orders"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("processing"),
-      v.literal("dispatched"),
-      v.literal("delivered"),
-      v.literal("collected")
-    ),
+    status: orderStatusValidator,
     trackingNumber: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { id, ...updates } = args;
-    await ctx.db.patch(id, updates);
+    const order = await ctx.db.get(id);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+    const trackingNumber = updates.trackingNumber?.trim() || undefined;
+    const statusChanged = order.status !== updates.status;
+
+    await ctx.db.patch(id, {
+      status: updates.status,
+      trackingNumber,
+      updatedAt: Date.now(),
+    });
+
+    if (
+      statusChanged &&
+      ["shipped", "completed", "dispatched", "delivered", "collected"].includes(
+        updates.status
+      )
+    ) {
+      await ctx.scheduler.runAfter(0, internal.emails.sendDeliveryStatusUpdate, {
+        orderId: id,
+      });
+    }
+  },
+});
+
+export const sendCustomerMessage = mutation({
+  args: {
+    orderId: v.id("orders"),
+    subject: v.string(),
+    message: v.string(),
+    markAsIssue: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    const subject = args.subject.trim();
+    const message = args.message.trim();
+    const recipientEmail = normaliseEmail(order.customerEmail);
+    if (subject.length < 3) {
+      throw new Error("Subject must be at least 3 characters.");
+    }
+    if (message.length < 10) {
+      throw new Error("Message must be at least 10 characters.");
+    }
+
+    const communicationId = await ctx.db.insert("orderCommunications", {
+      orderId: args.orderId,
+      recipientEmail,
+      subject,
+      message,
+      status: "queued",
+      createdAt: Date.now(),
+    });
+
+    if (args.markAsIssue) {
+      await ctx.db.patch(args.orderId, {
+        status: "issue",
+        updatedAt: Date.now(),
+      });
+    }
+
+    await ctx.scheduler.runAfter(0, internal.emails.sendOrderCustomerMessage, {
+      communicationId,
+    });
+
+    return communicationId;
+  },
+});
+
+export const markCommunicationSentInternal = internalMutation({
+  args: { id: v.id("orderCommunications") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, {
+      status: "sent",
+      sentAt: Date.now(),
+    });
+  },
+});
+
+export const markCommunicationFailedInternal = internalMutation({
+  args: {
+    id: v.id("orderCommunications"),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, {
+      status: "failed",
+      error: args.error,
+    });
   },
 });
 

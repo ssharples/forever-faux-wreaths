@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Upload,
@@ -33,6 +34,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 
 const arrangementTypes = [
@@ -250,6 +254,8 @@ function UploadZone({
           <p className="text-xs text-charcoal-400 mt-1">Max 5 images</p>
         </motion.div>
         <input
+          id="inspirationImages"
+          name="inspirationImages"
           type="file"
           accept="image/*"
           multiple
@@ -282,6 +288,7 @@ function UploadZone({
                 </div>
                 <motion.button
                   type="button"
+                  aria-label={`Remove inspiration image ${index + 1}`}
                   onClick={() => onRemove(index)}
                   className="absolute -top-2 -right-2 h-6 w-6 bg-charcoal-600 rounded-full flex items-center justify-center text-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
                   whileHover={{ scale: 1.1 }}
@@ -301,18 +308,23 @@ function UploadZone({
 // Animated form field wrapper
 function FormField({
   children,
+  id,
   label,
   required,
   hint,
 }: {
   children: React.ReactNode;
+  id?: string;
   label: string;
   required?: boolean;
   hint?: string;
 }) {
   return (
     <div className="group">
-      <Label className="text-charcoal-600 group-focus-within:text-sage-600 transition-colors">
+      <Label
+        htmlFor={id}
+        className="text-charcoal-600 group-focus-within:text-sage-600 transition-colors"
+      >
         {label} {required && <span className="text-sage-500">*</span>}
       </Label>
       {children}
@@ -329,18 +341,25 @@ function FormField({
 function ColourThemeSelector({
   value,
   onChange,
+  labelId,
 }: {
   value: string;
   onChange: (value: string) => void;
+  labelId: string;
 }) {
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+    <div
+      role="group"
+      aria-labelledby={labelId}
+      className="grid grid-cols-4 sm:grid-cols-7 gap-2"
+    >
       {colourThemes.map((theme) => {
         const isSelected = value === theme.value;
         return (
           <motion.button
             key={theme.value}
             type="button"
+            aria-pressed={isSelected}
             onClick={() => onChange(theme.value)}
             className={`relative flex flex-col items-center p-2 sm:p-3 rounded-xl border-2 transition-all ${
               isSelected
@@ -382,18 +401,25 @@ function ColourThemeSelector({
 function SizeSelector({
   value,
   onChange,
+  labelId,
 }: {
   value: string;
   onChange: (value: string) => void;
+  labelId: string;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+    <div
+      role="group"
+      aria-labelledby={labelId}
+      className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3"
+    >
       {sizes.map((size) => {
         const isSelected = value === size.value;
         return (
           <motion.button
             key={size.value}
             type="button"
+            aria-pressed={isSelected}
             onClick={() => onChange(size.value)}
             className={`relative flex flex-col items-center p-3 sm:p-4 rounded-xl border-2 transition-all ${
               isSelected
@@ -492,10 +518,14 @@ function MobileStickyFooter({
           type="submit"
           onClick={onSubmit}
           disabled={isSubmitting || !canSubmit}
+          aria-label={isSubmitting ? "Submitting enquiry" : "Submit enquiry"}
           className="bg-sage-400 hover:bg-sage-500 text-white px-6"
         >
           {isSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="sr-only">Submitting enquiry</span>
+            </>
           ) : (
             <>
               Submit
@@ -509,6 +539,9 @@ function MobileStickyFooter({
 }
 
 export default function BespokePage() {
+  const searchParams = useSearchParams();
+  const createEnquiry = useMutation(api.bespokeEnquiries.create);
+  const generateUploadUrl = useMutation(api.bespokeEnquiries.generateUploadUrl);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -524,11 +557,45 @@ export default function BespokePage() {
     occasion: "",
     notes: "",
     consent: false,
+    sourceProductId: "",
+    sourceProductTitle: "",
+    sourceProductSlug: "",
   });
 
   const [inspirationImages, setInspirationImages] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [hasAppliedPrefill, setHasAppliedPrefill] = useState(false);
+
+  useEffect(() => {
+    if (hasAppliedPrefill) return;
+
+    const productTitle = searchParams.get("productTitle");
+    if (!productTitle) {
+      setHasAppliedPrefill(true);
+      return;
+    }
+
+    const productSize = searchParams.get("productSize") ?? "";
+    const productColours = searchParams.get("productColours") ?? "";
+    const matchingSize = sizes.find((size) => productSize.includes(size.value));
+
+    setFormData((current) => ({
+      ...current,
+      arrangementType: current.arrangementType || "door-wreath",
+      colourTheme: current.colourTheme || "custom",
+      customColour: current.customColour || productColours,
+      size: current.size || matchingSize?.value || "custom",
+      customSize: current.customSize || (!matchingSize ? productSize : ""),
+      notes:
+        current.notes ||
+        `I am interested in customising ${productTitle}. I would like a similar feel, with a few bespoke changes.`,
+      sourceProductId: searchParams.get("productId") ?? "",
+      sourceProductTitle: productTitle,
+      sourceProductSlug: searchParams.get("productSlug") ?? "",
+    }));
+    setHasAppliedPrefill(true);
+  }, [hasAppliedPrefill, searchParams]);
 
   // Calculate estimated price
   const estimatedPrice = useMemo(() => {
@@ -558,8 +625,49 @@ export default function BespokePage() {
     return (filledFields.length / requiredFields.length) * 100;
   }, [formData]);
 
+  const canSubmit = useMemo(() => {
+    const requiredFields = [
+      formData.name,
+      formData.email,
+      formData.arrangementType,
+      formData.colourTheme,
+      formData.wreathBase,
+      formData.size,
+    ];
+    return formData.consent && requiredFields.every((value) => value.trim().length > 0);
+  }, [formData]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const missingRequiredField = [
+      ["name", "name"],
+      ["email", "email"],
+      ["arrangementType", "arrangement type"],
+      ["colourTheme", "colour theme"],
+      ["wreathBase", "wreath base"],
+      ["size", "size"],
+    ].find(([key]) => !String(formData[key as keyof typeof formData]).trim());
+
+    if (missingRequiredField) {
+      toast.error(`Please choose a ${missingRequiredField[1]}.`);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    if (formData.colourTheme === "custom" && !formData.customColour.trim()) {
+      toast.error("Please describe your custom colour preferences.");
+      return;
+    }
+
+    if (formData.size === "custom" && !formData.customSize.trim()) {
+      toast.error("Please describe your custom size requirements.");
+      return;
+    }
 
     if (!formData.consent) {
       toast.error("Please agree to the privacy policy to continue");
@@ -567,16 +675,57 @@ export default function BespokePage() {
     }
 
     setIsSubmitting(true);
+    try {
+      const uploadedImageIds: Id<"_storage">[] = [];
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+      for (const file of inspirationImages) {
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+        if (!response.ok) {
+          throw new Error("Failed to upload inspiration image.");
+        }
 
-    toast.success("Enquiry submitted successfully!", {
-      description: "We'll be in touch within 24-48 hours.",
-    });
+        const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+        uploadedImageIds.push(storageId);
+      }
+
+      await createEnquiry({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || undefined,
+        arrangementType: formData.arrangementType,
+        colourTheme: formData.colourTheme,
+        customColour: formData.customColour.trim() || undefined,
+        ribbon: formData.ribbon,
+        ribbonColour: formData.ribbonColour.trim() || undefined,
+        wreathBase: formData.wreathBase,
+        size: formData.size,
+        customSize: formData.customSize.trim() || undefined,
+        occasion: formData.occasion || "home-decor",
+        inspirationImages: uploadedImageIds,
+        sourceProductId: formData.sourceProductId
+          ? (formData.sourceProductId as Id<"products">)
+          : undefined,
+        sourceProductTitle: formData.sourceProductTitle.trim() || undefined,
+        sourceProductSlug: formData.sourceProductSlug.trim() || undefined,
+        notes: formData.notes.trim() || undefined,
+        estimatedPrice: estimatedPrice !== null ? `from £${estimatedPrice}` : undefined,
+      });
+
+      setIsSubmitted(true);
+      toast.success("Enquiry submitted successfully.", {
+        description: "We’ll be in touch within 24–48 hours.",
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit enquiry.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -712,9 +861,10 @@ export default function BespokePage() {
                         Contact Information
                       </h3>
                       <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-                        <FormField label="Name" required>
+                        <FormField id="name" label="Name" required>
                           <Input
                             id="name"
+                            autoComplete="name"
                             value={formData.name}
                             onChange={(e) =>
                               setFormData({ ...formData, name: e.target.value })
@@ -724,10 +874,11 @@ export default function BespokePage() {
                             placeholder="Your full name"
                           />
                         </FormField>
-                        <FormField label="Email" required>
+                        <FormField id="email" label="Email" required>
                           <Input
                             id="email"
                             type="email"
+                            autoComplete="email"
                             value={formData.email}
                             onChange={(e) =>
                               setFormData({ ...formData, email: e.target.value })
@@ -739,12 +890,14 @@ export default function BespokePage() {
                         </FormField>
                         <div className="sm:col-span-2">
                           <FormField
+                            id="phone"
                             label="Phone"
                             hint="Optional - helpful for quick questions"
                           >
                             <Input
                               id="phone"
                               type="tel"
+                              autoComplete="tel"
                               value={formData.phone}
                               onChange={(e) =>
                                 setFormData({ ...formData, phone: e.target.value })
@@ -768,14 +921,18 @@ export default function BespokePage() {
                         Design Details
                       </h3>
                       <div className="space-y-4 sm:space-y-5">
-                        <FormField label="Type of Arrangement" required>
+                        <FormField
+                          id="arrangementType"
+                          label="Type of Arrangement"
+                          required
+                        >
                           <Select
                             value={formData.arrangementType}
                             onValueChange={(value) =>
                               setFormData({ ...formData, arrangementType: value })
                             }
                           >
-                            <SelectTrigger className="mt-1.5">
+                            <SelectTrigger id="arrangementType" className="mt-1.5">
                               <SelectValue placeholder="Select type" />
                             </SelectTrigger>
                             <SelectContent>
@@ -789,10 +946,11 @@ export default function BespokePage() {
                         </FormField>
 
                         <div className="space-y-2">
-                          <Label className="text-charcoal-600">
+                          <Label id="colourTheme-label" className="text-charcoal-600">
                             Colour Theme <span className="text-sage-500">*</span>
                           </Label>
                           <ColourThemeSelector
+                            labelId="colourTheme-label"
                             value={formData.colourTheme}
                             onChange={(value) =>
                               setFormData({ ...formData, colourTheme: value })
@@ -809,6 +967,7 @@ export default function BespokePage() {
                               exit="exit"
                             >
                               <FormField
+                                id="customColour"
                                 label="Describe your colour preferences"
                                 hint="Be as specific as you like"
                               >
@@ -848,7 +1007,7 @@ export default function BespokePage() {
                             <span className="font-medium text-sm text-charcoal-700">
                               Add a ribbon (+£{RIBBON_PRICE})
                             </span>
-                            <p className="text-sm text-charcoal-400">
+                        <p className="text-sm text-charcoal-400">
                               A decorative bow or hanging ribbon
                             </p>
                           </div>
@@ -867,7 +1026,7 @@ export default function BespokePage() {
                               animate="visible"
                               exit="exit"
                             >
-                              <FormField label="Ribbon Colour">
+                              <FormField id="ribbonColour" label="Ribbon Colour">
                                 <Input
                                   id="ribbonColour"
                                   value={formData.ribbonColour}
@@ -885,14 +1044,14 @@ export default function BespokePage() {
                           )}
                         </AnimatePresence>
 
-                        <FormField label="Wreath Base" required>
+                        <FormField id="wreathBase" label="Wreath Base" required>
                           <Select
                             value={formData.wreathBase}
                             onValueChange={(value) =>
                               setFormData({ ...formData, wreathBase: value })
                             }
                           >
-                            <SelectTrigger className="mt-1.5">
+                            <SelectTrigger id="wreathBase" className="mt-1.5">
                               <SelectValue placeholder="Select base type" />
                             </SelectTrigger>
                             <SelectContent>
@@ -906,10 +1065,11 @@ export default function BespokePage() {
                         </FormField>
 
                         <div className="space-y-2">
-                          <Label className="text-charcoal-600">
+                          <Label id="size-label" className="text-charcoal-600">
                             Size <span className="text-sage-500">*</span>
                           </Label>
                           <SizeSelector
+                            labelId="size-label"
                             value={formData.size}
                             onChange={(value) =>
                               setFormData({ ...formData, size: value })
@@ -925,7 +1085,10 @@ export default function BespokePage() {
                               animate="visible"
                               exit="exit"
                             >
-                              <FormField label="Describe your size requirements">
+                              <FormField
+                                id="customSize"
+                                label="Describe your size requirements"
+                              >
                                 <Input
                                   id="customSize"
                                   value={formData.customSize}
@@ -943,14 +1106,14 @@ export default function BespokePage() {
                           )}
                         </AnimatePresence>
 
-                        <FormField label="Occasion">
+                        <FormField id="occasion" label="Occasion">
                           <Select
                             value={formData.occasion}
                             onValueChange={(value) =>
                               setFormData({ ...formData, occasion: value })
                             }
                           >
-                            <SelectTrigger className="mt-1.5">
+                            <SelectTrigger id="occasion" className="mt-1.5">
                               <SelectValue placeholder="Select occasion (optional)" />
                             </SelectTrigger>
                             <SelectContent>
@@ -997,7 +1160,11 @@ export default function BespokePage() {
                         </span>
                         Additional Notes
                       </h3>
+                      <Label htmlFor="notes" className="sr-only">
+                        Additional notes
+                      </Label>
                       <Textarea
+                        id="notes"
                         value={formData.notes}
                         onChange={(e) =>
                           setFormData({ ...formData, notes: e.target.value })
@@ -1041,7 +1208,7 @@ export default function BespokePage() {
                         type="submit"
                         size="lg"
                         className="w-full bg-sage-400 hover:bg-sage-500 text-white relative overflow-hidden hidden lg:flex"
-                        disabled={isSubmitting || !formData.consent}
+                        disabled={isSubmitting || !canSubmit}
                       >
                         <AnimatePresence mode="wait">
                           {isSubmitting ? (
@@ -1093,7 +1260,10 @@ export default function BespokePage() {
                       Estimated Price
                       <TooltipProvider>
                         <Tooltip>
-                          <TooltipTrigger>
+                          <TooltipTrigger
+                            type="button"
+                            aria-label="About estimated pricing"
+                          >
                             <Info className="h-4 w-4 text-charcoal-400" />
                           </TooltipTrigger>
                           <TooltipContent>
@@ -1184,7 +1354,7 @@ export default function BespokePage() {
         estimatedPrice={estimatedPrice}
         progress={formProgress}
         isSubmitting={isSubmitting}
-        canSubmit={formData.consent}
+        canSubmit={canSubmit}
         onSubmit={() => {
           const form = document.querySelector("form");
           if (form) form.requestSubmit();

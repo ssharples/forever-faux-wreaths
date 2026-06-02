@@ -11,9 +11,7 @@ export default function PrivacyPolicyPage() {
         <section className="bg-gradient-to-b from-cream-100 to-cream-200 py-12">
           <div className="container-narrow">
             <h1 className="mb-4">Privacy Policy</h1>
-            <p className="text-charcoal-500">
-              Last updated: January 2025
-            </p>
+            <p className="text-charcoal-500">Last updated: June 2026</p>
           </div>
         </section>
 
@@ -23,11 +21,11 @@ export default function PrivacyPolicyPage() {
             <div className="prose prose-charcoal max-w-none">
               <h2>1. Introduction</h2>
               <p>
-                Forever Faux Wreaths (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is committed to
-                protecting your privacy. This Privacy Policy explains how we
-                collect, use, disclose, and safeguard your information when you
-                visit our website foreverfauxwreaths.co.uk and make purchases
-                from us.
+                Forever Faux Wreaths (&quot;we&quot;, &quot;us&quot;, or
+                &quot;our&quot;) is committed to protecting your privacy. This
+                Privacy Policy explains how we collect, use, disclose, and
+                safeguard your information when you visit our website
+                foreverfauxwreaths.co.uk and make purchases from us.
               </p>
               <p>
                 We are based in Preston, Lancashire, United Kingdom and comply
@@ -41,9 +39,21 @@ export default function PrivacyPolicyPage() {
               <ul>
                 <li>Name and contact details (email address, phone number)</li>
                 <li>Delivery address</li>
-                <li>Payment information (processed securely through PayPal or SumUp)</li>
+                <li>
+                  Payment information (processed securely through Stripe
+                  Checkout)
+                </li>
                 <li>Order history and preferences</li>
                 <li>Communications with us (enquiries, feedback, reviews)</li>
+                <li>
+                  Waitlist, early access, and wholesale enquiry details for new
+                  product launches
+                </li>
+                <li>
+                  Business information you provide for trade enquiries, such as
+                  business name, business type, website, and requested trade
+                  information
+                </li>
               </ul>
 
               <h3>Automatically Collected Information</h3>
@@ -64,6 +74,10 @@ export default function PrivacyPolicyPage() {
               <ul>
                 <li>Process and fulfil your orders</li>
                 <li>Communicate with you about your orders and enquiries</li>
+                <li>
+                  Manage product waitlists, early access requests, and wholesale
+                  interest
+                </li>
                 <li>Send you updates about new products (with your consent)</li>
                 <li>Improve our website and services</li>
                 <li>Comply with legal obligations</li>
@@ -74,20 +88,20 @@ export default function PrivacyPolicyPage() {
               <p>We process your personal data on the following legal bases:</p>
               <ul>
                 <li>
-                  <strong>Contract:</strong> Processing necessary to fulfil orders
-                  and provide our services
+                  <strong>Contract:</strong> Processing necessary to fulfil
+                  orders and provide our services
                 </li>
                 <li>
-                  <strong>Consent:</strong> Where you have given explicit consent
-                  (e.g., marketing communications)
+                  <strong>Consent:</strong> Where you have given explicit
+                  consent (e.g., marketing communications)
                 </li>
                 <li>
-                  <strong>Legitimate interests:</strong> For fraud prevention and
-                  improving our services
+                  <strong>Legitimate interests:</strong> For fraud prevention
+                  and improving our services
                 </li>
                 <li>
-                  <strong>Legal obligation:</strong> Where we are required by law
-                  to process data
+                  <strong>Legal obligation:</strong> Where we are required by
+                  law to process data
                 </li>
               </ul>
 
@@ -95,8 +109,8 @@ export default function PrivacyPolicyPage() {
               <p>We may share your information with:</p>
               <ul>
                 <li>
-                  <strong>Payment processors:</strong> PayPal and SumUp for secure
-                  payment processing
+                  <strong>Payment processor:</strong> Stripe for secure checkout
+                  and payment processing
                 </li>
                 <li>
                   <strong>Delivery services:</strong> To fulfil your orders
@@ -106,9 +120,7 @@ export default function PrivacyPolicyPage() {
                   hosting and analytics
                 </li>
               </ul>
-              <p>
-                We do not sell your personal information to third parties.
-              </p>
+              <p>We do not sell your personal information to third parties.</p>
 
               <h2>6. Data Retention</h2>
               <p>
@@ -119,6 +131,10 @@ export default function PrivacyPolicyPage() {
               <ul>
                 <li>Order information: 7 years (for tax purposes)</li>
                 <li>Marketing preferences: Until you withdraw consent</li>
+                <li>
+                  Product launch and wholesale enquiries: Until the enquiry is
+                  resolved or you ask us to delete it
+                </li>
                 <li>Website analytics: 26 months</li>
               </ul>
 
@@ -144,7 +160,10 @@ export default function PrivacyPolicyPage() {
               <p>
                 We use cookies to improve your experience on our website. For
                 more information, please see our{" "}
-                <Link href="/legal/cookies" className="text-sage-600 hover:underline">
+                <Link
+                  href="/legal/cookies"
+                  className="text-sage-600 hover:underline"
+                >
                   Cookie Policy
                 </Link>
                 .
@@ -152,10 +171,10 @@ export default function PrivacyPolicyPage() {
 
               <h2>9. Security</h2>
               <p>
-                We implement appropriate technical and organisational measures to
-                protect your personal information. Payment processing is handled
-                securely by PayPal and SumUp, and we never store your full
-                payment card details.
+                We implement appropriate technical and organisational measures
+                to protect your personal information. Payment processing is
+                handled securely by Stripe Checkout, and we never store your
+                full payment card details.
               </p>
 
               <h2>10. Children&apos;s Privacy</h2>
@@ -185,9 +204,9 @@ export default function PrivacyPolicyPage() {
                 <li>Location: Preston, Lancashire, UK</li>
               </ul>
               <p>
-                You also have the right to lodge a complaint with the Information
-                Commissioner&apos;s Office (ICO) if you believe your data
-                protection rights have been violated.
+                You also have the right to lodge a complaint with the
+                Information Commissioner&apos;s Office (ICO) if you believe your
+                data protection rights have been violated.
               </p>
             </div>
           </div>

@@ -15,16 +15,21 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
+import {
+  MADE_TO_ORDER_LEAD_TIME,
+  MAX_ORDER_QUANTITY_PER_PRODUCT,
+} from "@/lib/made-to-order";
 
 export default function CartPage() {
   const sessionId = useCartSession();
+  const storefrontSettings = useQuery(api.siteSettings.getStorefront);
   const cart = useQuery(
     api.cart.getWithProducts,
     sessionId ? { sessionId } : "skip"
   );
   const updateItemQuantity = useMutation(api.cart.updateItemQuantity);
   const removeItemMutation = useMutation(api.cart.removeItem);
-  const createCheckoutSession = useAction(api.stripe.createCheckoutSession);
+  const createCheckoutSession = useAction(api.stripeCheckout.createCheckoutSession);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<"collection" | "standard">("collection");
 
@@ -32,12 +37,24 @@ export default function CartPage() {
   const isEmpty = cartItems.length === 0;
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const hasLargeItems = cartItems.some(item => item.product.sizeCategory === "large");
+  const hasUnavailableItems = cartItems.some(
+    (item) =>
+      item.product.status !== "active" ||
+      item.quantity > MAX_ORDER_QUANTITY_PER_PRODUCT
+  );
+
+  const deliveryPrices = storefrontSettings?.deliveryPrices ?? {
+    small: 4.99,
+    large: 7.99,
+    collection: 0,
+  };
 
   // Determine delivery cost based on largest item
-  let deliveryCost = 0;
-  if (deliveryMethod !== "collection") {
-    deliveryCost = hasLargeItems ? 7.99 : 4.99;
-  }
+  const standardDeliveryCost = hasLargeItems
+    ? deliveryPrices.large ?? 7.99
+    : deliveryPrices.small ?? 4.99;
+  const deliveryCost =
+    deliveryMethod === "collection" ? 0 : standardDeliveryCost;
 
   const total = subtotal + deliveryCost;
 
@@ -63,15 +80,16 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (!sessionId || !cart?.items.length) return;
+    if (storefrontSettings?.holidayMode) {
+      toast.error("Orders are currently paused while holiday mode is enabled.");
+      return;
+    }
     setIsCheckingOut(true);
     try {
       const result = await createCheckoutSession({
         items: cart.items.map((item) => ({
           productId: item.product._id,
-          title: item.product.title,
-          price: item.product.price,
           quantity: item.quantity,
-          imageUrl: item.product.imageUrl ?? undefined,
         })),
         deliveryMethod,
         deliveryCost,
@@ -189,6 +207,8 @@ export default function CartPage() {
                                 {item.product.title}
                               </Link>
                               <button
+                                type="button"
+                                aria-label={`Remove ${item.product.title} from cart`}
                                 onClick={() => removeItem(item.product._id)}
                                 className="min-h-[44px] min-w-[44px] -mr-3 -mt-2 flex items-center justify-center text-charcoal-400 hover:text-destructive transition-colors shrink-0"
                               >
@@ -200,17 +220,23 @@ export default function CartPage() {
                               {item.product.sizeCategory} item
                             </p>
                             <p className="text-xs text-charcoal-500 mt-1">
-                              {item.product.stock === 0
+                              {item.product.status !== "active"
                                 ? "No longer available"
-                                : item.product.stock === 1
-                                  ? "1 available"
-                                  : `${item.product.stock} available`}
+                                : item.quantity > MAX_ORDER_QUANTITY_PER_PRODUCT
+                                  ? `Please enquire for quantities above ${MAX_ORDER_QUANTITY_PER_PRODUCT}`
+                                  : `Made to order · ready in ${MADE_TO_ORDER_LEAD_TIME}`}
                             </p>
 
                             <div className="flex items-center justify-between mt-4">
                               {/* Quantity Controls - touch-friendly */}
                               <div className="flex items-center border border-cream-400 rounded-md">
                                 <button
+                                  type="button"
+                                  aria-label={
+                                    item.quantity === 1
+                                      ? `Remove ${item.product.title} from cart`
+                                      : `Decrease quantity of ${item.product.title}`
+                                  }
                                   onClick={() =>
                                     updateQuantity(item.product._id, item.quantity - 1)
                                   }
@@ -218,14 +244,22 @@ export default function CartPage() {
                                 >
                                   <Minus className="h-4 w-4" />
                                 </button>
-                                <span className="w-10 text-center font-medium text-charcoal-600">
+                                <span
+                                  aria-live="polite"
+                                  className="w-10 text-center font-medium text-charcoal-600"
+                                >
                                   {item.quantity}
                                 </span>
                                 <button
+                                  type="button"
+                                  aria-label={`Increase quantity of ${item.product.title}`}
                                   onClick={() =>
                                     updateQuantity(item.product._id, item.quantity + 1)
                                   }
-                                  disabled={item.quantity >= item.product.stock}
+                                  disabled={
+                                    item.product.status !== "active" ||
+                                    item.quantity >= MAX_ORDER_QUANTITY_PER_PRODUCT
+                                  }
                                   className="min-h-[44px] min-w-[44px] flex items-center justify-center text-charcoal-500 hover:text-charcoal-700 hover:bg-cream-100 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
                                 >
                                   <Plus className="h-4 w-4" />
@@ -248,6 +282,19 @@ export default function CartPage() {
                 <div className="lg:col-span-1">
                   <Card className="p-6 border-cream-300 bg-white sticky top-24">
                     <h3 className="text-xl mb-6">Order Summary</h3>
+
+                    {storefrontSettings?.holidayMode && (
+                      <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        Orders are currently paused. Please check back shortly.
+                      </div>
+                    )}
+
+                    {hasUnavailableItems && (
+                      <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-charcoal-700">
+                        One or more items in your cart need attention before checkout.
+                        Please update your cart before checkout.
+                      </div>
+                    )}
 
                     {/* Delivery Options */}
                     <div className="mb-6">
@@ -284,11 +331,11 @@ export default function CartPage() {
                               Standard Delivery
                             </span>
                             <span className="block text-sm text-charcoal-400">
-                              3-5 working days
+                              Made to order, then carefully dispatched
                             </span>
                           </Label>
                           <span className="text-charcoal-600 font-medium">
-                            £{hasLargeItems ? "7.99" : "4.99"}
+                            £{standardDeliveryCost.toFixed(2)}
                           </span>
                         </div>
                       </RadioGroup>
@@ -325,7 +372,12 @@ export default function CartPage() {
                       size="lg"
                       className="w-full mt-6 bg-sage-400 hover:bg-sage-500 text-white"
                       onClick={handleCheckout}
-                      disabled={isCheckingOut || isEmpty}
+                      disabled={
+                        isCheckingOut ||
+                        isEmpty ||
+                        storefrontSettings?.holidayMode ||
+                        hasUnavailableItems
+                      }
                     >
                       {isCheckingOut ? (
                         <>
@@ -341,7 +393,7 @@ export default function CartPage() {
                     </Button>
 
                     <p className="text-xs text-charcoal-400 text-center mt-4">
-                      Secure checkout powered by Stripe
+                      Secure checkout powered by Stripe. Made-to-order wreaths are usually ready in {MADE_TO_ORDER_LEAD_TIME}.
                     </p>
                   </Card>
                 </div>

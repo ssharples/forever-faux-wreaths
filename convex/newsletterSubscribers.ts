@@ -1,9 +1,12 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { requireAdmin } from "./authHelpers";
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     return await ctx.db.query("newsletterSubscribers").order("desc").collect();
   },
 });
@@ -26,6 +29,12 @@ export const subscribe = mutation({
     await ctx.db.insert("newsletterSubscribers", {
       email,
       subscribedAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(0, internal.emails.sendAdminNotification, {
+      subject: "New newsletter signup",
+      htmlBody: `<p><strong>${email}</strong> joined the newsletter list.</p>`,
+      notificationType: "notifyNewsletterSignups",
     });
 
     return { success: true, message: "Successfully subscribed" };

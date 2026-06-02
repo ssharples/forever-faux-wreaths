@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 // TikTok icon
 function TikTokIcon({ className }: { className?: string }) {
@@ -27,6 +29,7 @@ function TikTokIcon({ className }: { className?: string }) {
 }
 
 export default function ContactPage() {
+  const createContactMessage = useMutation(api.contactMessages.create);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -46,21 +49,36 @@ export default function ContactPage() {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      await createContactMessage({
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject || undefined,
+        message: formData.message,
+        consent: formData.consent,
+      });
 
-    toast.success("Message sent successfully!", {
-      description: "We'll get back to you as soon as possible.",
-    });
+      toast.success("Message sent", {
+        description: "Thank you. We'll reply as soon as possible.",
+      });
 
-    setFormData({
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-      consent: false,
-    });
-    setIsSubmitting(false);
+      setFormData({
+        name: "",
+        email: "",
+        subject: "",
+        message: "",
+        consent: false,
+      });
+    } catch (error) {
+      toast.error("Could not send your message", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again, or email us directly.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -179,7 +197,7 @@ export default function ContactPage() {
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? (
-                        "Sending..."
+                      "Sending message..."
                       ) : (
                         <>
                           <Send className="h-4 w-4 mr-2" />

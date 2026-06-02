@@ -1,103 +1,78 @@
-"use node";
-
 import { v } from "convex/values";
-import { action } from "./_generated/server";
-import Stripe from "stripe";
-import { api } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
 
-export const createCheckoutSession = action({
+export const beginWebhookProcessing = internalMutation({
   args: {
-    items: v.array(
-      v.object({
-        productId: v.id("products"),
-        title: v.string(),
-        price: v.number(),
-        quantity: v.number(),
-        imageUrl: v.optional(v.string()),
-      })
-    ),
-    deliveryMethod: v.union(v.literal("standard"), v.literal("collection")),
-    deliveryCost: v.number(),
-    sessionId: v.optional(v.string()),
+    eventId: v.string(),
+    eventType: v.string(),
+    stripeSessionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    for (const item of args.items) {
-      const product = await ctx.runQuery(api.products.getById, {
-        id: item.productId,
+    const existing = await ctx.db
+      .query("stripeWebhookEvents")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .first();
+
+    if (!existing) {
+      await ctx.db.insert("stripeWebhookEvents", {
+        ...args,
+        status: "processing",
+        attempts: 1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
-
-      if (!product || product.status !== "active" || product.stock <= 0) {
-        throw new Error(`${item.title} is no longer available.`);
-      }
-
-      if (item.quantity > product.stock) {
-        throw new Error(`Only ${product.stock} of ${item.title} available.`);
-      }
+      return true;
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2026-02-25.clover",
+    if (existing.status === "completed" || existing.status === "processing") {
+      return false;
+    }
+
+    await ctx.db.patch(existing._id, {
+      status: "processing",
+      attempts: existing.attempts + 1,
+      lastError: undefined,
+      updatedAt: Date.now(),
     });
+    return true;
+  },
+});
 
-    const siteUrl = process.env.SITE_URL || "http://localhost:3000";
+export const completeWebhookProcessing = internalMutation({
+  args: { eventId: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("stripeWebhookEvents")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .first();
 
-    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] =
-      args.items.map((item) => ({
-        price_data: {
-          currency: "gbp",
-          product_data: {
-            name: item.title,
-            ...(item.imageUrl ? { images: [item.imageUrl] } : {}),
-          },
-          unit_amount: Math.round(item.price * 100),
-        },
-        quantity: item.quantity,
-      }));
-
-    // Add delivery as a line item if applicable
-    if (args.deliveryCost > 0) {
-      line_items.push({
-        price_data: {
-          currency: "gbp",
-          product_data: {
-            name: "Standard Delivery",
-          },
-          unit_amount: Math.round(args.deliveryCost * 100),
-        },
-        quantity: 1,
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: "completed",
+        processedAt: Date.now(),
+        updatedAt: Date.now(),
       });
     }
+  },
+});
 
-    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items,
-      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/cart`,
-      metadata: {
-        items: JSON.stringify(
-          args.items.map((i) => ({
-            productId: i.productId,
-            title: i.title,
-            price: i.price,
-            quantity: i.quantity,
-          }))
-        ),
-        deliveryMethod: args.deliveryMethod,
-        deliveryCost: String(args.deliveryCost),
-        ...(args.sessionId ? { cartSessionId: args.sessionId } : {}),
-      },
-    };
+export const failWebhookProcessing = internalMutation({
+  args: {
+    eventId: v.string(),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("stripeWebhookEvents")
+      .withIndex("by_eventId", (q) => q.eq("eventId", args.eventId))
+      .first();
 
-    // Only collect shipping address for standard delivery
-    if (args.deliveryMethod === "standard") {
-      sessionConfig.shipping_address_collection = {
-        allowed_countries: ["GB"],
-      };
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: "error",
+        lastError: args.error,
+        updatedAt: Date.now(),
+      });
     }
-
-    const session = await stripe.checkout.sessions.create(sessionConfig);
-
-    return { url: session.url };
   },
 });

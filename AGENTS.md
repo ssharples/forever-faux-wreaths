@@ -58,3 +58,4 @@
 - After code changes, run the narrowest useful validation first, then broader validation if warranted.
 - Prefer small, surgical edits that match the existing patterns in this repo.
 - If a task affects checkout, admin data, or Convex schema, call that out explicitly in your final summary and note what was or was not verified.
+- After completing changes, deploy the current project to Vercel production using the `vercel-deploy` skill unless the user explicitly asks not to deploy or asks for preview-only deployment.

@@ -3,22 +3,21 @@ import { Facebook, Instagram } from "lucide-react";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
 
 const footerNavigation = {
-  collections: [
-    { name: "All Collections", href: "/collections" },
-    { name: "Memorial Wreaths", href: "/collections/memorial-wreaths" },
-    { name: "Funeral Wreaths", href: "/collections/funeral-wreaths" },
-    { name: "Door Wreaths", href: "/collections/door-wreaths" },
-    { name: "Christmas Wreaths", href: "/collections/christmas-wreaths" },
-  ],
   shop: [
     { name: "All Wreaths", href: "/shop" },
+    { name: "Seasonal", href: "/shop?style=seasonal" },
+    { name: "Classic", href: "/shop?style=classic" },
+    { name: "Memorial", href: "/shop?style=memorial" },
+    { name: "Memorial Topper", href: "/memorial-topper" },
+  ],
+  services: [
     { name: "Bespoke Orders", href: "/bespoke" },
     { name: "Gallery", href: "/gallery" },
+    { name: "Reviews", href: "/info/reviews" },
   ],
   support: [
     { name: "Packaging & Delivery", href: "/info/packaging" },
     { name: "FAQs", href: "/info/faqs" },
-    { name: "Reviews", href: "/info/reviews" },
     { name: "Contact Us", href: "/contact" },
   ],
   legal: [
@@ -121,14 +120,14 @@ export function Footer() {
             <div className="md:grid md:grid-cols-2 md:gap-8">
               <div>
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
-                  Collections
+                  Shop
                 </h3>
-                <ul role="list" className="mt-4 space-y-1">
-                  {footerNavigation.collections.map((item) => (
+                <ul role="list" className="mt-4 space-y-3">
+                  {footerNavigation.shop.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -138,14 +137,14 @@ export function Footer() {
               </div>
               <div className="mt-10 md:mt-0">
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
-                  Shop
+                  Services
                 </h3>
-                <ul role="list" className="mt-4 space-y-1">
-                  {footerNavigation.shop.map((item) => (
+                <ul role="list" className="mt-4 space-y-3">
+                  {footerNavigation.services.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -159,12 +158,12 @@ export function Footer() {
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
                   Support
                 </h3>
-                <ul role="list" className="mt-4 space-y-1">
+                <ul role="list" className="mt-4 space-y-3">
                   {footerNavigation.support.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -176,12 +175,12 @@ export function Footer() {
                 <h3 className="text-sm font-semibold leading-6 text-cream-100">
                   Legal
                 </h3>
-                <ul role="list" className="mt-4 space-y-1">
+                <ul role="list" className="mt-4 space-y-3">
                   {footerNavigation.legal.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className="block min-h-[44px] md:min-h-0 py-2 md:py-1 text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
+                        className="text-sm leading-6 text-cream-400 hover:text-sage-300 transition-colors"
                       >
                         {item.name}
                       </Link>

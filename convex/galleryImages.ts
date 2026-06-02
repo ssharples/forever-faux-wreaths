@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { requireAdmin } from "./authHelpers";
 
 export const list = query({
   args: {
@@ -38,6 +39,22 @@ export const list = query({
   },
 });
 
+export const adminList = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const images = await ctx.db.query("galleryImages").collect();
+    const sortedImages = images.sort((a, b) => a.sortOrder - b.sortOrder);
+
+    return Promise.all(
+      sortedImages.map(async (image) => ({
+        ...image,
+        url: await ctx.storage.getUrl(image.imageId),
+      }))
+    );
+  },
+});
+
 export const getVisible = query({
   args: {},
   handler: async (ctx) => {
@@ -71,6 +88,7 @@ export const create = mutation({
     visible: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     return await ctx.db.insert("galleryImages", {
       ...args,
       createdAt: Date.now(),
@@ -87,14 +105,37 @@ export const update = mutation({
     visible: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const { id, ...updates } = args;
     await ctx.db.patch(id, updates);
+  },
+});
+
+export const bulkUpdate = mutation({
+  args: {
+    ids: v.array(v.id("galleryImages")),
+    category: v.optional(v.string()),
+    visible: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const category = args.category?.trim() || undefined;
+
+    for (const id of args.ids) {
+      const image = await ctx.db.get(id);
+      if (!image) continue;
+      await ctx.db.patch(id, {
+        ...(category !== undefined ? { category } : {}),
+        ...(args.visible !== undefined ? { visible: args.visible } : {}),
+      });
+    }
   },
 });
 
 export const remove = mutation({
   args: { id: v.id("galleryImages") },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const image = await ctx.db.get(args.id);
     if (image) {
       await ctx.storage.delete(image.imageId);
@@ -103,9 +144,23 @@ export const remove = mutation({
   },
 });
 
+export const bulkRemove = mutation({
+  args: { ids: v.array(v.id("galleryImages")) },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    for (const id of args.ids) {
+      const image = await ctx.db.get(id);
+      if (!image) continue;
+      await ctx.storage.delete(image.imageId);
+      await ctx.db.delete(id);
+    }
+  },
+});
+
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

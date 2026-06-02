@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
+import { requireAdmin } from "./authHelpers";
 
 export const get = query({
   args: { key: v.string() },
@@ -24,12 +25,59 @@ export const getAll = query({
   },
 });
 
+export const getStorefront = query({
+  args: {},
+  handler: async (ctx) => {
+    const settings = await ctx.db.query("siteSettings").collect();
+    const settingsMap: Record<string, unknown> = {};
+    for (const setting of settings) {
+      settingsMap[setting.key] = setting.value;
+    }
+
+    return {
+      holidayMode: Boolean(settingsMap.holidayMode),
+      seasonalBanner:
+        (settingsMap.seasonalBanner as
+          | { enabled?: boolean; text?: string; variant?: string }
+          | undefined) ?? null,
+      deliveryPrices:
+        (settingsMap.deliveryPrices as
+          | { small?: number; large?: number; collection?: number }
+          | undefined) ?? null,
+      deliveryOptions:
+        (settingsMap.deliveryOptions as
+          | {
+              small?: { enabled?: boolean; time?: string };
+              large?: { enabled?: boolean; time?: string };
+              collection?: { enabled?: boolean; address?: string };
+            }
+          | undefined) ?? null,
+      storeName: (settingsMap.storeName as string | undefined) ?? null,
+      contactEmail: (settingsMap.contactEmail as string | undefined) ?? null,
+      location: (settingsMap.location as string | undefined) ?? null,
+    };
+  },
+});
+
+export const getAllInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const settings = await ctx.db.query("siteSettings").collect();
+    const settingsMap: Record<string, unknown> = {};
+    for (const setting of settings) {
+      settingsMap[setting.key] = setting.value;
+    }
+    return settingsMap;
+  },
+});
+
 export const set = mutation({
   args: {
     key: v.string(),
     value: v.any(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const existing = await ctx.db
       .query("siteSettings")
       .withIndex("by_key", (q) => q.eq("key", args.key))
@@ -49,6 +97,7 @@ export const set = mutation({
 export const remove = mutation({
   args: { key: v.string() },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
     const setting = await ctx.db
       .query("siteSettings")
       .withIndex("by_key", (q) => q.eq("key", args.key))
@@ -64,6 +113,7 @@ export const remove = mutation({
 export const initializeDefaults = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const defaults = [
       {
         key: "seasonalBanner",
@@ -79,6 +129,23 @@ export const initializeDefaults = mutation({
           small: 4.99,
           large: 7.99,
           collection: 0,
+        },
+      },
+      {
+        key: "deliveryOptions",
+        value: {
+          small: {
+            enabled: true,
+            time: "1-2 weeks",
+          },
+          large: {
+            enabled: true,
+            time: "1-2 weeks",
+          },
+          collection: {
+            enabled: true,
+            address: "Preston, Lancashire (exact address provided after order)",
+          },
         },
       },
       {

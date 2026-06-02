@@ -11,10 +11,14 @@ import {
   Eye,
   Image as ImageIcon,
   Loader2,
+  Hammer,
+  Star,
+  ShieldCheck,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { WebsiteQrCard } from "@/components/admin/website-qr-card";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { timeAgo } from "@/lib/format-date";
@@ -27,22 +31,45 @@ const statusColors: Record<string, string> = {
   "in-progress": "bg-sage-100 text-sage-700",
   "in-discussion": "bg-purple-100 text-purple-700",
   dispatched: "bg-blue-100 text-blue-700",
+  shipped: "bg-blue-100 text-blue-700",
   delivered: "bg-green-100 text-green-700",
   collected: "bg-green-100 text-green-700",
   completed: "bg-green-100 text-green-700",
+  issue: "bg-red-100 text-red-700",
+};
+
+const orderStatusLabels: Record<string, string> = {
+  pending: "Pending",
+  processing: "Processing",
+  dispatched: "Shipped",
+  shipped: "Shipped",
+  delivered: "Completed",
+  completed: "Completed",
+  collected: "Collected",
+  issue: "Issue",
 };
 
 export default function AdminDashboard() {
   const orders = useQuery(api.orders.list, {});
-  const products = useQuery(api.products.list, {});
+  const products = useQuery(api.products.adminList, {});
   const enquiries = useQuery(api.bespokeEnquiries.list, {});
+  const reviews = useQuery(api.reviews.list, {});
+  const memorialLeads = useQuery(api.memorialLeads.list, {});
 
-  const isLoading = orders === undefined || products === undefined || enquiries === undefined;
+  const isLoading =
+    orders === undefined ||
+    products === undefined ||
+    enquiries === undefined ||
+    reviews === undefined ||
+    memorialLeads === undefined;
 
   const totalRevenue = orders?.reduce((sum, o) => sum + o.total, 0) ?? 0;
   const orderCount = orders?.length ?? 0;
   const activeProducts = products?.filter(p => p.status === "active").length ?? 0;
   const newEnquiries = enquiries?.filter(e => e.status === "new").length ?? 0;
+  const hiddenReviews = reviews?.filter((review) => !review.visible).length ?? 0;
+  const newMemorialLeads =
+    memorialLeads?.filter((lead) => lead.status === "new").length ?? 0;
 
   const computedStats = [
     {
@@ -65,9 +92,59 @@ export default function AdminDashboard() {
       value: String(newEnquiries),
       icon: MessageSquare,
     },
+    {
+      name: "Topper Leads",
+      value: String(newMemorialLeads),
+      icon: ShieldCheck,
+    },
   ];
 
   const pendingCount = orders?.filter(o => o.status === "pending" || o.status === "processing").length ?? 0;
+  const priorityQueues = [
+    {
+      title: "Orders Awaiting Action",
+      count: pendingCount,
+      href: "/admin/orders?status=pending",
+      body: pendingCount > 0 ? "Payment taken. Move these through fulfilment." : "No pending or processing orders right now.",
+      icon: ShoppingBag,
+      tone: pendingCount > 0 ? "border-amber-200 bg-amber-50" : "border-cream-300 bg-white",
+    },
+    {
+      title: "New Bespoke Enquiries",
+      count: newEnquiries,
+      href: "/admin/enquiries?status=new",
+      body: newEnquiries > 0 ? "Fresh customer requests waiting for review." : "No new bespoke enquiries waiting.",
+      icon: MessageSquare,
+      tone: newEnquiries > 0 ? "border-blue-200 bg-blue-50" : "border-cream-300 bg-white",
+    },
+    {
+      title: "Memorial Topper Leads",
+      count: newMemorialLeads,
+      href: "/admin/memorial-leads",
+      body: newMemorialLeads > 0 ? "Waitlist and trade interest ready for follow-up." : "No new Memorial Topper leads waiting.",
+      icon: ShieldCheck,
+      tone: newMemorialLeads > 0 ? "border-sage-300 bg-sage-50" : "border-cream-300 bg-white",
+    },
+    {
+      title: "Made-To-Order Catalogue",
+      count: activeProducts,
+      href: "/admin/products?status=active",
+      body:
+        activeProducts > 0
+          ? "Active products are shown as made to order with a 1-2 week lead time."
+          : "No products are currently active on the storefront.",
+      icon: Hammer,
+      tone: activeProducts > 0 ? "border-sage-300 bg-sage-50" : "border-cream-300 bg-white",
+    },
+    {
+      title: "Reviews To Publish",
+      count: hiddenReviews,
+      href: "/admin/reviews",
+      body: hiddenReviews > 0 ? "Customer proof is ready to publish on the storefront." : "All approved reviews are already visible.",
+      icon: Star,
+      tone: hiddenReviews > 0 ? "border-sage-300 bg-sage-50" : "border-cream-300 bg-white",
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -91,7 +168,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {computedStats.map((stat) => (
           <Card key={stat.name} className="p-6 border-cream-300 bg-white">
             <div className="flex items-start justify-between">
@@ -107,6 +184,37 @@ export default function AdminDashboard() {
             </div>
           </Card>
         ))}
+      </div>
+
+      <div className="mb-8">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl text-charcoal-700">Needs Attention</h2>
+            <p className="text-sm text-charcoal-500">
+              Start with the queues that affect customer response time and fulfilment.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {priorityQueues.map((queue) => (
+            <Link key={queue.title} href={queue.href}>
+              <Card className={`h-full border p-5 transition-colors hover:border-sage-300 ${queue.tone}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-charcoal-500">{queue.title}</p>
+                    <p className="mt-2 font-display text-3xl text-charcoal-700">
+                      {queue.count}
+                    </p>
+                    <p className="mt-3 text-sm text-charcoal-500">{queue.body}</p>
+                  </div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80">
+                    <queue.icon className="h-5 w-5 text-charcoal-700" />
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Main Content Grid */}
@@ -159,8 +267,9 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <Badge className={statusColors[order.status] || "bg-gray-100 text-gray-700"}>
-                      {order.status.charAt(0).toUpperCase() +
-                        order.status.slice(1)}
+                      {orderStatusLabels[order.status] ??
+                        order.status.charAt(0).toUpperCase() +
+                          order.status.slice(1)}
                     </Badge>
                   </div>
                 </div>
@@ -235,65 +344,69 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="mt-8">
-        <h3 className="text-lg font-medium text-charcoal-700 mb-4">
-          Quick Actions
-        </h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
-          >
-            <Link href="/admin/products/new">
-              <Package className="h-5 w-5 mr-3 text-sage-600" />
-              <div className="text-left">
-                <p className="font-medium">Add Product</p>
-                <p className="text-xs text-charcoal-400">Create new listing</p>
-              </div>
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
-          >
-            <Link href="/admin/orders?status=processing">
-              <ShoppingBag className="h-5 w-5 mr-3 text-sage-600" />
-              <div className="text-left">
-                <p className="font-medium">Process Orders</p>
-                <p className="text-xs text-charcoal-400">{pendingCount} pending</p>
-              </div>
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
-          >
-            <Link href="/admin/gallery/upload">
-              <ImageIcon className="h-5 w-5 mr-3 text-sage-600" />
-              <div className="text-left">
-                <p className="font-medium">Upload Images</p>
-                <p className="text-xs text-charcoal-400">Add to gallery</p>
-              </div>
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
-          >
-            <Link href="/admin/settings">
-              <TrendingUp className="h-5 w-5 mr-3 text-sage-600" />
-              <div className="text-left">
-                <p className="font-medium">View Analytics</p>
-                <p className="text-xs text-charcoal-400">Site performance</p>
-              </div>
-            </Link>
-          </Button>
+      {/* Quick Actions + QR */}
+      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,2fr)_360px]">
+        <div>
+          <h3 className="text-lg font-medium text-charcoal-700 mb-4">
+            Quick Actions
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Button
+              asChild
+              variant="outline"
+              className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
+            >
+              <Link href="/admin/products/new">
+                <Package className="h-5 w-5 mr-3 text-sage-600" />
+                <div className="text-left">
+                  <p className="font-medium">Add Product</p>
+                  <p className="text-xs text-charcoal-400">Create new listing</p>
+                </div>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
+            >
+              <Link href="/admin/orders?status=processing">
+                <ShoppingBag className="h-5 w-5 mr-3 text-sage-600" />
+                <div className="text-left">
+                  <p className="font-medium">Process Orders</p>
+                  <p className="text-xs text-charcoal-400">{pendingCount} pending</p>
+                </div>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
+            >
+              <Link href="/admin/gallery/upload">
+                <ImageIcon className="h-5 w-5 mr-3 text-sage-600" />
+                <div className="text-left">
+                  <p className="font-medium">Upload Images</p>
+                  <p className="text-xs text-charcoal-400">Add to gallery</p>
+                </div>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="h-auto py-4 justify-start border-cream-300 hover:bg-sage-50"
+            >
+              <Link href="/admin/settings">
+                <TrendingUp className="h-5 w-5 mr-3 text-sage-600" />
+                <div className="text-left">
+                  <p className="font-medium">View Analytics</p>
+                  <p className="text-xs text-charcoal-400">Site performance</p>
+                </div>
+              </Link>
+            </Button>
+          </div>
         </div>
+
+        <WebsiteQrCard />
       </div>
     </div>
   );
